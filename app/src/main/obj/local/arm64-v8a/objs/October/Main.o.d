@@ -39,10 +39,6 @@
   /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/Operators.hpp \
   /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/Property.hpp \
   /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/PropertyBase.hpp \
-  /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/Tools.h \
-  /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/Includes.h \
-  /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/fake_dlfcn.h \
-  /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/Il2Cpp.h \
   /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/UserSettings/Il2CppMethodNames.hpp \
   /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/Enum/HitboxType.h \
   /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/Enum/HitMargin.h \
@@ -86,10 +82,6 @@
 /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/Operators.hpp:
 /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/Property.hpp:
 /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/PropertyBase.hpp:
-/storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/Tools.h:
-/storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/Includes.h:
-/storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/fake_dlfcn.h:
-/storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/ByNameModding/Il2Cpp.h:
 /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/BNM/include/BNM/UserSettings/Il2CppMethodNames.hpp:
 /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/Enum/HitboxType.h:
 /storage/emulated/0/AideProjects/移植版r171Mods_DobbyHook_/app/src/main/jni/Enum/HitMargin.h:

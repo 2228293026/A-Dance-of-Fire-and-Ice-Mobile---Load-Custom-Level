@@ -24,13 +24,15 @@
 #include "BNM/include/BNM/Utils.hpp"
 #include "BNM/include/BNM/Defaults.hpp"
 
-#include "ByNameModding/Tools.h"
-#include "ByNameModding/fake_dlfcn.h"
-#include "ByNameModding/Il2Cpp.h"
 #include "BNM/UserSettings/Il2CppMethodNames.hpp"
 
 void start();
+void InitIL2CPPExports();
 template <typename T>
 T callMethod(std::string nameSpace,std::string className,std::string methodName,BNM::IL2CPP::Il2CppObject *instance = nullptr);
 template <typename T>
 T getFieldValue(std::string NS,std::string className,std::string fieldName,BNM::IL2CPP::Il2CppObject *instance = nullptr);
+
+BNM::IL2CPP::Il2CppAssembly *GetAssembly(const char *name);
+BNM::IL2CPP::Il2CppImage *GetImage(BNM::IL2CPP::Il2CppAssembly *assembly);
+BNM::IL2CPP::Il2CppImage *GetImage(const char *assemblyName);

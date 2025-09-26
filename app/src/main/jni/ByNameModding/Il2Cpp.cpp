@@ -2,13 +2,8 @@
 
 #include "Includes.h"
 #include "fake_dlfcn.h"
-#include <dlfcn.h>
-#include <stdint.h>
-#include <link.h>
-#include <elf.h>
-#include <sys/mman.h>
 
-#define LOG_TAG "HitMargin-Il2Cpp"
+#define LOG_TAG "DarkTeam-Il2Cpp"
 
 #define IL2CPP_LOGI(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define IL2CPP_LOGD(...) __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__)
@@ -35,18 +30,8 @@ namespace {
     void* (*il2cpp_class_get_methods)(void *klass, void* *iter);
     const char* (*il2cpp_method_get_name)(void *method);
     void *(*il2cpp_object_new)(void *klass);
-    static const char* (*il2cpp_method_get_param_name)(const MethodInfo*, uint32_t);
 }
 // =========================================================================== //
-void InitIL2CPPExports() {
-    if (il2cpp_method_get_param_name) return;
-
-    void* handle = dlopen("libil2cpp.so", RTLD_NOW);
-    if (!handle) return;
-
-    il2cpp_method_get_param_name = (const char* (*)(const MethodInfo*, uint32_t))
-        dlsym(handle, "il2cpp_method_get_param_name");
-}
 void Il2CppAttach(const char *name) {
     void *handle = dlopen_ex(name, 0);
     while (!handle) {
@@ -73,6 +58,7 @@ void Il2CppAttach(const char *name) {
     il2cpp_class_get_methods = (void *(*)(void *, void **)) dlsym_ex(handle, "il2cpp_class_get_methods");
     il2cpp_method_get_name = (const char *(*)(void *)) dlsym_ex(handle, "il2cpp_method_get_name");
     il2cpp_object_new = (void *(*)(void *)) dlsym_ex(handle, "il2cpp_object_new");
+
     dlclose_ex(handle);
 }
 // =========================================================================== //
@@ -328,8 +314,6 @@ void *Il2CppGetMethodOffset(const char *image, const char *namespaze, const char
     IL2CPP_LOGE("Cannot find function %s in class %s!", name, clazz);
     return 0;
 }
-// ================================================================================================================ //
-// ================================================================================================================ //
 // ================================================================================================================ //
 size_t Il2CppGetFieldOffset(const char *image, const char *namespaze, const char *clazz, const char *name) {
     void *img = Il2CppGetImageByName(image);

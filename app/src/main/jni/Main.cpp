@@ -16,49 +16,115 @@ using namespace BNM::ADOFAI;
 using namespace BNM::Structures::Mono;
 using namespace BNM::Structures::Unity;
 using namespace BNM::IL2CPP;
+using namespace BNM::Defaults;
 
-#define targetLib "libil2cpp.so"
+#define LOG_TAG "IL2CPP_EXPORTS"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
+/*
 #if defined(__aarch64__)
 #define ARM64_CALL __attribute__((pcs("aapcs")))
 #else
 #define ARM64_CALL
 #endif    
-
+*/
 uintptr_t G_IL2CPP;
-Image il2cpp;
+Image unityCore;
+Image assembly_csharp;
+Image unityUI;
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, [[maybe_unused]] void *reserved) {
     JNIEnv *env;
     vm->GetEnv((void **) &env, JNI_VERSION_1_6);
     BNM::Loading::TryLoadByJNI(env);
     BNM::Loading::AddOnLoadedEvent(start);
-
+    
     return JNI_VERSION_1_6;
 }
+
+
 template <typename T>
-T callMethod(std::string nameSpace,std::string className,std::string methodName,Il2CppObject *instance) {
-    Class clazz = Class(nameSpace,className);
+T callMethod(std::string nameSpace, std::string className, std::string methodName, Il2CppObject *instance) {
+    //LOGD("Calling method %s::%s::%s", nameSpace.c_str(), className.c_str(), methodName.c_str());
+    Class clazz = Class(nameSpace, className);
     Method<T> method = clazz.GetMethod(methodName);
-    if (instance == nullptr) return method.Call();
-    return method[instance].Call();
+    if (instance == nullptr) {
+        T result = method.Call();
+        //LOGD("Method called successfully, result: %p", (void*)result);
+        return result;
+    }
+    T result = method[instance].Call();
+    //LOGD("Method called successfully, result: %p", (void*)result);
+    return result;
 }
+
 template <typename T>
-T getFieldValue(std::string NS,std::string className,std::string fieldName,Il2CppObject *instance) {
-    Class clazz = Class(NS,className);
+T getFieldValue(std::string NS, std::string className, std::string fieldName, Il2CppObject *instance) {
+    //LOGD("Getting field %s::%s::%s", NS.c_str(), className.c_str(), fieldName.c_str());
+    Class clazz = Class(NS, className);
     Field<T> field = clazz.GetField(fieldName);
-    if (instance == nullptr) return field.Get();
-    return field[instance].Get();
+    if (instance == nullptr) {
+        T result = field.Get();
+        //LOGD("Field value: %p", (void*)result);
+        return result;
+    }
+    T result = field[instance].Get();
+    //LOGD("Field value: %p", (void*)result);
+    return result;
 }
+
 void SetActive(UnityEngine::Object* gameObject, bool active) {
+    //LOGD("Setting active: %p -> %d", gameObject, active);
     auto gameObjectClass = Class("UnityEngine", "GameObject");
     Method<void> setActiveMethod = gameObjectClass.GetMethod("SetActive", {"value"});
     setActiveMethod[gameObject].Call(active);
+    //LOGD("SetActive completed");
 }
+
 UnityEngine::Object* GetGameObject(UnityEngine::Object* component) {
+    //LOGD("Getting GameObject from component: %p", component);
     Class componentClass = Class("UnityEngine", "Component");
     Method<UnityEngine::Object*> getGameObjectMethod = componentClass.GetMethod("get_gameObject");
-    return getGameObjectMethod[component].Call();
+    UnityEngine::Object* result = getGameObjectMethod[component].Call();
+    //LOGD("GameObject: %p", result);
+    return result;
 }
+
+void *Il2CppGetMethodOffset(Il2CppImage *image, const char *namespaze, const char *clazz, const char *name, int argsCount) {
+    LOGD("Getting method offset: %s::%s::%s (args: %d)", namespaze, clazz, name, argsCount);
+    auto klass = Class(namespaze, clazz, image);
+    auto method = klass.GetMethod(name, argsCount);
+    void* result = (void*)method._data->methodPointer;
+    LOGD("Method offset: %p", result);
+    return result;
+}
+
+size_t Il2CppGetFieldOffset(Il2CppImage *image, const char *namespaze, const char *clazz, const char *name) {
+    LOGD("Getting field offset: %s::%s::%s", namespaze, clazz, name);
+    auto klass = Class(namespaze, clazz, image);
+    auto field = klass.GetField(name);
+    size_t result = field.GetOffset();
+    LOGD("Field offset: %zu", result);
+    return result;
+}
+
+uintptr_t GetIL2CPPBase() {
+    static uintptr_t base = 0;
+    if (base == 0) {
+        LOGD("Getting IL2CPP base address");
+        Dl_info info;
+        auto adr = (BNM_PTR) BNM::Internal::GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get_assemblies));
+        if (dladdr((void *) adr, &info)) {
+            base = reinterpret_cast<uintptr_t>(info.dli_fbase);
+            LOGD("IL2CPP base: %p", (void*)base);
+        } else {
+            LOGE("Failed to get IL2CPP base address");
+        }
+    }
+    return base;
+}
+
 void(*old_BetaBuild)(UnityEngine::Object *);
 void BetaBuild(UnityEngine::Object *instance) {
     old_BetaBuild(instance);
@@ -145,32 +211,33 @@ Color red()
 {
     return Color(1,0,0,1);
 }
+
 void (*old_OttoButtonController_Update)(UnityEngine::Object* );
 void OttoButtonController_Update(UnityEngine::Object* instance) {
-    old_OttoButtonController_Update(instance);
-    Class ADOBaseClass = Class("", "ADOBase");
+    old_OttoButtonController_Update(instance); // 先调用远函数, 类似于HarmonyLib的后置补丁
+    Class ADOBaseClass = Class("", "ADOBase"); // 获取游戏类
     Field<UnityEngine::Object*> ottoButtonField = Class("", "OttoButtonController")
-    .GetField("button");
-    Property<bool> autoPro = Class("", "RDC").GetProperty("auto");
-    Method<UnityEngine::Object*> get_controller = ADOBaseClass.GetMethod("get_controller");
-    Field<bool> gameworld = Class("", "scrController").GetField("gameworld");
-    if (get_controller.Call() != nullptr && gameworld[get_controller.Call()].Get())
+    .GetField("button"); // 获取关键字段
+    Property<bool> autoPro = Class("", "RDC").GetProperty("auto"); // 获取游戏内的属性{get;set;}
+    Method<UnityEngine::Object*> get_controller = ADOBaseClass.GetMethod("get_controller"); // 获取实例
+    Field<bool> gameworld = Class("", "scrController").GetField("gameworld"); // 获取字段
+    if (get_controller.Call() != nullptr && gameworld[get_controller.Call()].Get()) // 检测实例是否为空 && 检测是否为游玩模式（需要使用实例传递）
     {
-        UnityEngine::Object* ottoButtonObj = ottoButtonField[instance].Get();
-        Class componentClass = Class("UnityEngine", "Component");
+        UnityEngine::Object* ottoButtonObj = ottoButtonField[instance].Get(); // 反向获取UnityEngine.UI.Button实例（OttoButtonController.button）
+        Class componentClass = Class("UnityEngine", "Component"); //获取组件类
         Method<UnityEngine::Object*> getGameObject = componentClass
-        .GetMethod("get_gameObject");
-        UnityEngine::Object* gameObject = getGameObject[ottoButtonObj].Call();
-        SetActive(gameObject, true);
-        UnityEngine::Object* customLevel = callMethod<UnityEngine::Object *>("","ADOBase","get_lm");
-        Field <float> highBPM = Class("","scrLevelMaker").GetField("highestBPM");
-        Class GraphicClass = Class("UnityEngine.UI", "Graphic");
-        Class SelectableClass = Class("UnityEngine.UI", "Selectable");
-        Property<UnityEngine::Object*> image = SelectableClass.GetProperty("image");
-        UnityEngine::Object* imageObj = image[ottoButtonObj].Get();
-        Property<Color> color = GraphicClass.GetProperty("color");
-        if (autoPro.Get()) {
-                color[imageObj].Set(highBPM[customLevel].Get() >= 300 ? red() : white());
+        .GetMethod("get_gameObject"); //获取游戏对象函数
+        UnityEngine::Object* gameObject = getGameObject[ottoButtonObj].Call(); // 存储游戏对象实例（OttoButtonController.button）
+        SetActive(gameObject, true); //设置游戏活动
+        UnityEngine::Object* customLevel = callMethod<UnityEngine::Object *>("","ADOBase","get_lm"); //存储实例
+        Field <float> highBPM = Class("","scrLevelMaker").GetField("highestBPM"); // 获取字段
+        Class GraphicClass = Class("UnityEngine.UI", "Graphic"); // 获取类
+        Class SelectableClass = Class("UnityEngine.UI", "Selectable"); //获取类
+        Property<UnityEngine::Object*> image = SelectableClass.GetProperty("image"); // 获取属性
+        UnityEngine::Object* imageObj = image[ottoButtonObj].Get(); // 传递实例到image（因为是继承关系可以传递实例） 获取image的实例
+        Property<Color> color = GraphicClass.GetProperty("color"); // 获取属性
+        if (autoPro.Get()) { // 条件检测
+                color[imageObj].Set(highBPM[customLevel].Get() >= 300 ? red() : white()); // 设置颜色条件判断
             } else {
                 Color grayColor = gray();
                 Color redColor = red();
@@ -179,11 +246,25 @@ void OttoButtonController_Update(UnityEngine::Object* instance) {
                         grayColor.g * redColor.g,
                         grayColor.b * redColor.b,
                         grayColor.a * redColor.a
-                );
-                color[imageObj].Set(highBPM[customLevel].Get() >= 300 ? mixedColor : gray());
+                ); // 混合颜色
+                color[imageObj].Set(highBPM[customLevel].Get() >= 300 ? mixedColor : gray()); // 设置颜色条件判断
         }
     }
 }
+
+// 继承示意图
+//UnityEngine.Object
+//    → Component (UnityEngine.Component)
+//        → Behaviour
+//            → UIBehaviour
+//                ├→ Selectable (UnityEngine.UI.Selectable)
+//                │   └→ Button (UnityEngine.UI.Button)
+//                │
+//                └→ Graphic (UnityEngine.UI.Graphic)
+//                    ├→ Image (UnityEngine.UI.Image)
+//                    ├→ Text (UnityEngine.UI.Text)
+//                    └→ RawImage (UnityEngine.UI.RawImage)
+
 float (*old_Validate_float)(UnityEngine::Object *,float);
 float Validate_floatMet(UnityEngine::Object *instance,float value) {
     return value;
@@ -193,10 +274,10 @@ int (*old_Validate_int)(UnityEngine::Object *,int);
 int Validate_intMet(UnityEngine::Object *instance,int value) {
     return value;
 }
-void (*old_getOnGui)(UnityEngine::Object*);
-void getOnGui(UnityEngine::Object*instance) {
+void (*old_getOnGui)();
+void getOnGui() {
     UnityEngine::Object* Game_ = getFieldValue<UnityEngine::Object *>("","ExtraUtils","instance");
-    old_getOnGui(instance);
+    old_getOnGui();
     Method<int> sizeText = Class("","ExtraUtils").GetMethod("get_textSize");
     Method<bool> showText = Class("","ExtraUtils").GetMethod("get_enableInfoShower");
     textSize = sizeText[Game_].Call();
@@ -290,6 +371,7 @@ void destroyPlanets(UnityEngine::Object* controllerInstance) {
         }
     }
 }
+
 void SetPlanetCount(int count) {
     auto floorType = Defaults::Get<scrFloor>();
     auto scrFloorClass = floorType.ToClass();
@@ -310,11 +392,12 @@ void SetPlanetCount(int count) {
     for (int i = 0; i < floors->GetCapacity(); i++) {
         UnityEngine::Object* floor = floors->GetData()[i];
         if (!floor) continue;
-        int Num = (int)Il2CppGetFieldOffset("Assembly-CSharp.dll", "", "scrFloor", "numPlanets");
+        int Num = (int)Il2CppGetFieldOffset(assembly_csharp, "", "scrFloor", "numPlanets");
         *(int*)((uint64_t)floor + Num) = count;
         }
     }
 }
+
 void Postfix_scnLevelSelect_Start() {
     auto GameObjectClass = Class("UnityEngine", "GameObject");
     auto TransformClass = Class("UnityEngine", "Transform");
@@ -424,45 +507,100 @@ void HitboxTriggerAction(UnityEngine::Object*instance,UnityEngine::Object* plane
     HitboxField[instance].Set(_static);
 }
 
+struct HookManager : public UnityEngine::MonoBehaviour {
+BNM_CustomClass(HookManager,
+                CompileTimeClassBuilder("Sept", "HookManager", "Assembly-CSharp").Build(),
+                CompileTimeClassBuilder("UnityEngine", "MonoBehaviour", "UnityEngine.CoreModule").Build(),
+                {},
+                {},
+                CompileTimeClassBuilder("", "").Build());
 
+    // 静态钩子方法
+    static bool Hooked_get_debug() {
+        
+        // 获取RDC类
+        Class rdcClass = Class("", "RDC");
+        
+        // 获取原get_auto方法
+        Method<bool> get_auto_method = rdcClass.GetMethod("get_auto");
+        
+        // 调用原方法并返回修改后的值
+        return !get_auto_method.Call();
+    }
+    void Constructor() {
+        UnityEngine::MonoBehaviour tmp = *this;
+        *this = HookManager();
+        *((UnityEngine::MonoBehaviour *)this) = tmp;
+    }
+    void Awake() {
+    BNM_CallCustomMethodOrigin(Awake, this);
+    }
+    void Start() {
+    BNM_CallCustomMethodOrigin(Start, this);
+    Property<bool> autoPro = Class("", "RDC").GetProperty("auto");
+    autoPro.Set(true);
+    }
+    void Update() {
+    BNM_CallCustomMethodOrigin(Update, this);
+    }
+
+
+    BNM_CustomMethod(Hooked_get_debug, 
+                     true,  // 静态方法
+                     Get<bool>(),  // 返回类型
+                     "debug");  // 方法名
+        
+    BNM_CustomMethod(Awake, false, Get<void>(), "Awake");
+    BNM_CustomMethod(Update, false, Get<void>(), "Update");
+    BNM_CustomMethod(Start, false, Get<void>(), "Start");
+    BNM_CustomMethod(Constructor, false, Get<void>(), ".ctor");
+};
+
+void (*orig_HookManager_Update)(UnityEngine::Object*);
+void HookManager_Update(UnityEngine::Object*instance) {
+    Class RDConstants = Class("", "RDConstants");
+    UnityEngine::Object* internalData = getFieldValue<UnityEngine::Object *>("","RDConstants","internalData"); //存储实例
+    Field<bool> debug_Bool = RDConstants.GetField("debug");
+    Field<bool> get_auto = RDConstants.GetField("auto");
+    debug_Bool[internalData].Set(!get_auto[internalData].Get());
+    orig_HookManager_Update(instance);
+}
+bool (*orig_debug)();
+bool debug() {
+    Class HookManager = Class("Sept", "HookManager");
+    Method<bool>HookManager_debug = HookManager.GetMethod("debug");
+    return HookManager_debug.Call();
+}
+
+bool (*orig_Debug_Met)();
+bool Debug_Met() {
+    return true;
+}
 void start() {
-/*
-    Image ass = Image("Assembly-CSharp");
-    auto classes = ass.GetClasses();
-    for (int i = 0; i < classes.size(); ++i) {
-        __android_log_print(6,"TAG","class:%s",classes[i].str().c_str());
-    }
-    auto methods = classes.GetMethods();
-    for (int i = 0; i < methods.size(); ++i) {
-        __android_log_print(6,"TAG","method:%s",methods[i].str().c_str());
-    }
-    auto fields = classes.GetFields();
-    for (int i = 0; i < fields.size(); ++i) {
-        __android_log_print(6,"TAG","field:%s",fields[i].str().c_str());
-    }
-    auto properties = classes.GetProperties();
-    for (int i = 0; i < properties.size(); ++i) {
-        __android_log_print(6,"TAG","field:%s",properties[i].str().c_str());
-    }
+    assembly_csharp = Image("Assembly-CSharp");
+    unityCore = Image("UnityEngine.CoreModule");
+    unityUI = Image("UnityEngine.UI");
+    auto debug_Hook = Class("","RDC").GetMethod("get_debug");
+//    BasicHook(debug_Hook, debug, orig_debug);
+    
+    /*
+    unityCore = GetImage(GetAssembly("UnityEngine.CoreModule"));
+    assembly_csharp = GetImage(GetAssembly("Assembly-CSharp"));
     */
-/*
-    auto fields = Class("ADOFAI","LevelData").GetFields();
-    for (int i = 0; i < fields.size(); ++i) {
-        __android_log_print(6,"TAG","field:%s",fields[i].str().c_str());
-    }
-    */
-    auto ContainsChinese_Hook = Class("","ExtraUtils").GetMethod("ContainsChinese");
-    //BasicHook(ContainsChinese_Hook, ContainsChinese_Value, orig_ContainsChinese_Hook);
+    //unityCore = GetImage("UnityEngine.CoreModule");
+    //assembly_csharp = GetImage("Assembly-CSharp");
     auto GetDeviceID = Class("StArray","scnVerify").GetMethod("GetDeviceID");
-    BasicHook(GetDeviceID, GetDeviceIDMet,old_GetDeviceID);
+    //BasicHook(GetDeviceID, GetDeviceIDMet,old_GetDeviceID);
     auto Validate_single = Class("ADOFAI","PropertyInfo").GetMethod("Validate", {CompileTimeClassBuilder("System", "Single").Build()});
-    BasicHook(Validate_single, Validate_floatMet,old_Validate_float);
+    //BasicHook(Validate_single, Validate_floatMet,old_Validate_float);
     auto Validate_int = Class("ADOFAI","PropertyInfo").GetMethod("Validate", {CompileTimeClassBuilder("System", "Int32").Build()});
-    BasicHook(Validate_int, Validate_intMet,old_Validate_int);
+    //BasicHook(Validate_int, Validate_intMet,old_Validate_int);
     auto betaBuild_Hook = Class("", "scrEnableIfBeta").GetMethod("Awake");
     BasicHook(betaBuild_Hook,BetaBuild,old_BetaBuild);
     auto News = Class("","NewsSign").GetMethod("ShowNews");
-    BasicHook(News,ShowNews,old_ShowNews);
+    //BasicHook(News,ShowNews,old_ShowNews);
+    auto RDC_Debug_Hook = Class("", "RDC").GetMethod("get_debug");
+    //BasicHook(RDC_Debug_Hook, Debug_Met, orig_Debug_Met);
     auto scrUIController_Update_Hook = Class("","scrUIController").GetMethod("Update");
     BasicHook(scrUIController_Update_Hook, UIController_Update,old_UIController_Update);
     auto OttoButtonController_Update_Hook = Class("","OttoButtonController").GetMethod("Update");
@@ -482,10 +620,16 @@ void start() {
     auto scnLevelSelect_Start_Hook = Class("","scnLevelSelect").GetMethod("Start");
     BasicHook(scnLevelSelect_Start_Hook,scnLevelSelect_Start,orig_scnLevelSelect_Start);
     auto HitBox_Hook = Class("","scrDecoration").GetMethod("HitboxTriggerAction");
-    BasicHook(HitBox_Hook,HitboxTriggerAction,orig_HitboxTriggerAction);
-    
+    //BasicHook(HitBox_Hook,HitboxTriggerAction,orig_HitboxTriggerAction);
+    auto Dev_ = Class("ADOFAI", "LevelEventInfo").GetMethod("get_isActive");
+    //BasicHook(Dev_, IsEditorMet, old_isEditor);
+    auto Dev = Class("UnityEngine", "Application", Image("UnityEngine.CoreModule")).GetMethod("get_isEditor");
+    //BasicHook(Dev, IsEditorMet, old_isEditor);
+
+    //auto Dev_d = Il2CppGetMethodOffset(unityCore, "UnityEngine", "Application", "get_isEditor", 0);
+    //DobbyHook(Dev_d, (void*)IsEditorMet,(void**)&old_isEditor);
 }
-    
+/*
 bool m_CachedPtr(void *unity_obj) {
     if (!unity_obj) return false;
     #if defined(__aarch64__)
@@ -526,27 +670,34 @@ void Update(UnityEngine::Object*instance) {
 
 void InitializationMethod() {
     char* loadSceneArgs[] = {(char*)"System.String"};
-    LoadScene = (LoadScene_t)Il2CppGetMethodOffset("Assembly-CSharp.dll", "", "ADOBase", "LoadScene", loadSceneArgs, /*sizeof(loadSceneArgs)/sizeof(char*)*/ 1);
+    LoadScene = (LoadScene_t)Il2CppGetMethodOffset("Assembly-CSharp.dll", "", "ADOBase", "LoadScene", loadSceneArgs, 1);
     SetDebug = (SetDebug_t)Il2CppGetMethodOffset("Assembly-CSharp.dll", "", "RDC", "set_debug", 1);
 
     auto Update_Hook = (void*)Il2CppGetMethodOffset("Assembly-CSharp.dll", "", "scnLevelSelect", "Update", 0);
-    DobbyHook(Update_Hook, (void*)Update, (void**)&old_Update);
+    //DobbyHook(Update_Hook, (void*)Update, (void**)&old_Update);
 }
-
+*/
+/*
 void *main_thread(void *) {
     while (!G_IL2CPP) {
         
-    G_IL2CPP = Tools::GetBaseAddress(targetLib);
+    G_IL2CPP = GetIL2CPPBase();
     
     sleep(1);
     }
-    Il2CppAttach();
-    //InitializationMethod();
+    InitIL2CPPExports();
+    
+    //unityCore = GetImage(GetAssembly("UnityEngine.CoreModule"));
+    //assembly_csharp = GetImage(GetAssembly("Assembly-CSharp"));
+    
+    unityCore = GetImage("UnityEngine.CoreModule");
+    assembly_csharp = GetImage("Assembly-CSharp");
+
     sleep(5);  
     //auto LevelSelect_ = (void*)Il2CppGetMethodOffset("Assembly-CSharp.dll", "", "scnLevelSelect", "Start");
     //DobbyHook(LevelSelect_, (void*)scnLevelSelect_Start,(void**)&orig_scnLevelSelect_Start);
-    auto Oplo = Il2CppGetMethodOffset("UnityEngine.CoreModule.dll", "UnityEngine", "Application", "get_isEditor");
-    DobbyHook(Oplo, (void*)IsEditorMet,(void**)&old_isEditor);
+    //auto Dev_d = Il2CppGetMethodOffset(unityCore, "UnityEngine", "Application", "get_isEditor", 0);
+    //DobbyHook(Dev_d, (void*)IsEditorMet,(void**)&old_isEditor);
     
     //auto InstantiateMethod = (UnityEngine::Object*)Il2CppGetMethodOffset("UnityEngine.CoreModule.dll", "UnityEngine", "Object", "Instantiate", {"original", "parent"});
     
@@ -559,3 +710,4 @@ void lib_main() {
     pthread_t ptid;
     pthread_create(&ptid, nullptr, main_thread, nullptr);
 }
+*/

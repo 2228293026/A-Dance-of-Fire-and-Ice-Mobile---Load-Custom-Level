@@ -39,9 +39,6 @@ LOCAL_SRC_FILES := BNM/src/Class.cpp \
     BNM/src/PropertyBase.cpp \
     BNM/src/UnityStructures.cpp \
     BNM/src/Utils.cpp \
-    ByNameModding/Tools.cpp \
-    ByNameModding/fake_dlfcn.cpp \
-    ByNameModding/Il2Cpp.cpp \
     Main.cpp
 
 # 指定C++标准
