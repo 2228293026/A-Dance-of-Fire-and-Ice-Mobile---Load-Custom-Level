@@ -1,0 +1,26 @@
+{
+  "id": "when-read-fails-during-this-project-use-the-foll-a08f7986d4",
+  "scope": "project",
+  "projectId": "project-be00fa7216d895c8",
+  "projectName": "adofai_mobile_android_hook",
+  "source": "session-observation",
+  "evidence": [
+    "{}",
+    "{\"data\":{\"type\":\"text\",\"file\":{\"filePath\":\"D:\\\\Projects\\\\Android\\\\移植版r171Mods_DobbyHook_\\\\app\\\\src\\\\main\\\\jni\\\\Enum\\\\HitboxType.h\",\"content\":\"enum class HitboxType\\n{\\n\\tNone,\\n\\tKill,\\n\\tEvent\\n};\",\"numLines\":6,\"startLine\":1,\"totalLines\":6}}}",
+    "{\"data\":{\"type\":\"text\",\"file\":{\"filePath\":\"D:\\\\Projects\\\\Android\\\\ADOFAI2.9.5\\\\settings.gradle\",\"content\":\"include ':app'\\nrootProject.name = \\\"utest\\\"\\n\",\"numLines\":3,\"startLine\":1,\"totalLines\":3}}}"
+  ],
+  "observationIds": [
+    "1c84cac1-81d2-4d1e-8078-9d1bbbb9706a",
+    "e892625c-bee0-4234-acdc-628ad74c14c3",
+    "01c03842-aa05-495c-b8ec-6ffafe6e6199",
+    "675c4eff-cf86-48c5-a1da-961a35495814"
+  ],
+  "trigger": "When Read fails during this project",
+  "action": "Use the follow-up successful Read invocation as the resolution pattern before retrying blindly.",
+  "confidence": 0.6,
+  "domain": "debugging",
+  "evidenceOutcome": "success",
+  "createdAt": "2026-04-27T16:29:09.198Z",
+  "updatedAt": "2026-04-27T17:18:38.721Z",
+  "status": "pending"
+}

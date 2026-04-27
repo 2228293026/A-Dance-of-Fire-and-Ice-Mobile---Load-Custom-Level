@@ -1,0 +1,35 @@
+{
+  "id": "when-unknown-tool-fails-during-this-project-use--8c69561ce2",
+  "scope": "project",
+  "projectId": "project-be00fa7216d895c8",
+  "projectName": "adofai_mobile_android_hook",
+  "source": "session-observation",
+  "evidence": [
+    "File does not exist. Note: your current working directory is D:\\Projects\\Android\\移植版r171Mods_DobbyHook_.",
+    "#include \"Internals.hpp\"\n#include <BNM/UserSettings/Il2CppMethodNames.hpp>\n\nusing namespace BNM;\n\nint Internal::BNM_il2cpp_init(const char *domain_name) {\n    if (states.lateInitAllowed) Unhook(BNM_Class$$FromIl2CppType_origin);\n\n    auto ret = old_BNM_il2cpp_init(domain_name);\n\n    Unhook(BNM_il2cpp_init_origin);\n\n    Load();\n\n    return ret;\n}\n\nIL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectionType *type) {\n    auto klass = old_BNM_Class$$FromIl2CppType(type);\n\n    if (states.state) return klass;\n\n    if (!Internal::il2cppMethods.il2cpp_domain_get) {\n        Internal::il2cppMethods.il2cpp_domain_get = (decltype(Internal::il2cppMethods.il2cpp_domain_get)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get));\n        Internal::il2cppMethods.il2cpp_thread_current = (decltype(Internal::il2cppMethods.il2cpp_thread_current)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_thread_current));\n    }\n\n    auto domain = Internal::il2cppMethods.il2cpp_domain_get();\n    auto thread = Internal::il2cppMethods.il2cpp_thread_current(domain);\n\n    // Will be true after il2cpp_init\n    if (!thread || !thread->internal_thread || (void *) domain->default_context != (void *) thread->internal_thread->current_appcontext) return klass;\n\n    Unhook(BNM_il2cpp_init_origin);\n    Unhook(BNM_Class$$FromIl2CppType_origin);\n\n    Load();\n\n    return klass;\n}\n\nvoid Internal::Image$$GetTypes(const IL2CPP::Il2CppImage *image, bool, std::vector<BNM::IL2CPP::Il2CppClass *> *target) {\n    // Get non-BNM classes\n    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable))-0x424e4d)\n        il2cppMethods.orig_Image$$GetTypes(image, false, target);\n\n#ifdef BNM_CLASSES_MANAGEMENT\n    // Get BNM classes\n    ClassesManagement::bnmClassesMap.ForEachByImage(image, [&target](IL2CPP::Il2CppClass *BNM_class) -> bool {\n        target->push_back(BNM_class);",
+    "<tool_use_error>InputValidationError: Read failed due to the following issue:\nThe required parameter `file_path` is missing</tool_use_error>",
+    "1\tenum class HitboxType\n2\t{\n3\t\tNone,\n4\t\tKill,\n5\t\tEvent\n6\t};\n\n<system-reminder>\nWhenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.\n</system-reminder>\n",
+    "File does not exist. Note: your current working directory is D:\\Projects\\Android\\ADOFAI2.9.5.",
+    "1\tinclude ':app'\n2\trootProject.name = \"utest\"\n3\t\n\n<system-reminder>\nWhenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.\n</system-reminder>\n",
+    "<tool_use_error>Path does not exist: app/src/main/jni/BNM/include. Note: your current working directory is D:\\Projects\\Android\\ADOFAI2.9.5\\app\\src\\main\\jni.</tool_use_error>",
+    "grep: app/src/main/jni/BNM/include/: No such file or directory"
+  ],
+  "observationIds": [
+    "6b3a072f-b058-4163-a02d-df4088892009",
+    "489c2298-d453-4d9a-a51e-396eb50b5309",
+    "bdc20a15-8966-43e1-be10-24d9938b9357",
+    "ec7f336b-6724-4b9f-b899-982195baf083",
+    "3aa2e5d9-0ba4-4264-a4b0-02a132d2cfb1",
+    "1cd739c2-4558-4535-9c8b-a991b5e5f03c",
+    "ea829d74-f94d-4c7e-b0be-81882bd26966",
+    "7e16dbb1-04f3-450c-be2b-960d49e61f50"
+  ],
+  "trigger": "When unknown_tool fails during this project",
+  "action": "Use the follow-up successful unknown_tool invocation as the resolution pattern before retrying blindly.",
+  "confidence": 0.65,
+  "domain": "debugging",
+  "evidenceOutcome": "success",
+  "createdAt": "2026-04-27T14:21:16.441Z",
+  "updatedAt": "2026-04-27T18:45:58.629Z",
+  "status": "pending"
+}

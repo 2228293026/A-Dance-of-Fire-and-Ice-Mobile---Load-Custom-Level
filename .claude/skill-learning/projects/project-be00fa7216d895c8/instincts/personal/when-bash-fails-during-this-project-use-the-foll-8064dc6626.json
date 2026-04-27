@@ -1,0 +1,26 @@
+{
+  "id": "when-bash-fails-during-this-project-use-the-foll-8064dc6626",
+  "scope": "project",
+  "projectId": "project-be00fa7216d895c8",
+  "projectName": "adofai_mobile_android_hook",
+  "source": "session-observation",
+  "evidence": [
+    "{\"stdout\":\"\",\"stderr\":\"\",\"code\":137,\"interrupted\":true,\"name\":\"ShellError\"}",
+    "{\"data\":{\"stdout\":\"[arm64-v8a] Clean          : October [arm64-v8a]\\r\\n[arm64-v8a] Clean          : dobby [arm64-v8a]\\r\\n[arm64-v8a] Compile++      : October <= Internals.cpp\\r\\n[arm64-v8a] Compile++      : October <= Loading.cpp\\r\\n[arm64-v8a] Compile++      : October <= MethodBase.cpp\\r\\n[arm64-v8a] Compile++      : October <= MonoStructures.cpp\\r\\n[arm64-v8a] Compile++      : October <= PropertyBase.cpp\\r\\n[arm64-v8a] Compile++      : October <= UnityStructures.cpp\\r\\n[arm64-v8a] Compile++      : October <= Utils.cpp\\r\\n[arm64-v8a] Compile++      : October <= Main.cpp\\r\\n[arm64-v8a] SharedLibrary  : libOctober.so\\r\\n[arm64-v8a] Install        : libOctober.so => libs/arm64-v8a/libOctober.so\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false}}",
+    "{\"data\":{\"stdout\":\"34042:\\t\\tpublic abstract new [String[]] OpenFilePanel([String] title, [String] directory, [ExtensionFilter[]] extensions, [Boolean] multiselect);\\n34048:\\t\\tpublic abstract new [Void] OpenFilePanelAsync([String] title, [String] directory, [ExtensionFilter[]] extensions, [Boolean] multiselect, [Action`1] cb);\\n34086:\\t\\tpublic static new [String[]] OpenFilePanel([String] title, [String] directory, [String] extension, [Boolean] multiselect);\\n34088:\\t\\tpublic static new [String[]] OpenFilePanel([String] title, [String] directory, [ExtensionFilter[]] extensions, [Boolean] multiselect);\\n34090:\\t\\tpublic static new [Void] OpenFilePanelAsync([String] title, [String] directory, [String] extension, [Boolean] multiselect, [Action`1] cb);\\n34092:\\t\\tpublic static new [Void] OpenFilePanelAsync([String] title, [String] directory, [ExtensionFilter[]] extensions, [Boolean] multiselect, [Action`1] cb);\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false}}"
+  ],
+  "observationIds": [
+    "4fe87677-4008-44bf-8fab-27e2a06ed7e0",
+    "c9464897-027e-4e25-84db-791e2caeadc1",
+    "8e775885-02d1-4f39-b600-be31e3097503",
+    "7440231b-6dfb-4b72-8d10-981d8b259874"
+  ],
+  "trigger": "When Bash fails during this project",
+  "action": "Use the follow-up successful Bash invocation as the resolution pattern before retrying blindly.",
+  "confidence": 0.55,
+  "domain": "debugging",
+  "evidenceOutcome": "success",
+  "createdAt": "2026-04-27T20:45:02.188Z",
+  "updatedAt": "2026-04-27T20:45:02.208Z",
+  "status": "pending"
+}
