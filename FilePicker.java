@@ -17,13 +17,12 @@ import java.util.Locale;
 
 public class FilePicker {
     private static long nativeCallbackPtr = 0;
-    //private static final String LOG_PATH = "/sdcard/adofai_mod.log";
+    private static final String LOG_PATH = "/sdcard/adofai_mod.log";
 
     private static String msg;
 
     // 写日志到文件（同步方法，避免竞争）
     private static synchronized void logToFile(String message) {
-        /*
         try {
             FileWriter writer = new FileWriter(LOG_PATH, true); // append mode
             String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
@@ -33,7 +32,6 @@ public class FilePicker {
         } catch (IOException e) {
             android.util.Log.e("FilePicker", "Failed to write log to file", e);
         }
-        */
     }
 
     // 初始化：只保存 C++ 回调指针，不需要传 Activity（每次都从 UnityPlayer 获取）

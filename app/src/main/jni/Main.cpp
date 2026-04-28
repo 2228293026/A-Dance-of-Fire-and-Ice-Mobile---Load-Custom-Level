@@ -490,12 +490,12 @@ String* dlc() {
 }
 bool (*old_isMobile)();
 bool IsMobile() {
-        Method<String*> sceneName = Class("","ADOBase").GetMethod("get_sceneName");
-        if (sceneName.Call()->str() == "scnTaroMenu0" || sceneName.Call()->str() == "scnTaroMenu1" || sceneName.Call()->str() == "scnTaroMenu2" || sceneName.Call()->str() == "scnTaroMenu3") {
-            return false;
-        } else {
-            return old_isMobile();
-        }
+    Method<String*> sceneName = Class("","ADOBase").GetMethod("get_sceneName");
+    if (sceneName.Call()->str() == "scnTaroMenu0" || sceneName.Call()->str() == "scnTaroMenu1" || sceneName.Call()->str() == "scnTaroMenu2" || sceneName.Call()->str() == "scnTaroMenu3") {
+        return false;
+    } else {
+        return old_isMobile();
+    }
 }
 DifficultyUIMode (*old_scrMisc_DetermineDifficultyUIMode)();
 DifficultyUIMode DetermineDifficultyUIModeMet() {
@@ -558,6 +558,15 @@ bool (*old_scrPlanet_GetMultipressPenalty)();
 bool scrPlanet_GetMultipressPenaltyMet() {
     return false;
 }
+void (*old_scrRing_Update)(UnityEngine::Object* );
+void scrRing_Update(UnityEngine::Object* instance) {
+    old_scrRing_Update(instance);
+    Method<UnityEngine::Object*> get_transform = Class("UnityEngine", "Component")
+    .GetMethod("get_transform");
+    UnityEngine::Object* transform = get_transform[instance].Call();
+    Property<Vector3> localScaleProp = Class("UnityEngine", "Transform").GetProperty("localScale");
+    localScaleProp[transform].Set(Vector3::zero);
+}
 
 void start() {
     assembly_csharp = Image("Assembly-CSharp");
@@ -584,6 +593,8 @@ void start() {
     
     auto ADOBase_isUnityEditor = Class("","ADOBase").GetMethod("get_isUnityEditor");
     BasicHook(ADOBase_isUnityEditor, IsUnityEditorMet,old_ADOBase_isUnityEditor);
+    auto scrRing_Update_Hook = Class("","scrRing").GetMethod("Update");
+    BasicHook(scrRing_Update_Hook, scrRing_Update,old_scrRing_Update);
 
     auto scrControllerClass_GetShowHitTextMethod = Class("","scrController").GetMethod("ShowHitText");
     BasicHook(scrControllerClass_GetShowHitTextMethod, ShowHitTextMet,old_scrController_ShowHitText);
