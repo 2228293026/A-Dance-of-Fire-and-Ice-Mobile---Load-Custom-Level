@@ -24,6 +24,11 @@
 3. 编译 JNI 库并替换目标 APK 中对应 `.so`
 4. 安装并测试文件选择与关卡加载流程
 
+## 库
+
+- BNM Library: https://github.com/ByNameModding/BNM-Android (official BNM repository)
+- Dobby: https://github.com/jmpews/Dobby (inline hooking used by BNM)
+
 ### 免责声明
 本项目仅用于学习与研究目的。请遵守目标软件的用户协议与当地法律法规，勿用于侵权或破坏性用途。
 
@@ -49,6 +54,12 @@ This project uses Android + JNI (C++) to inject/hook game behavior and load loca
 2. Follow `INSTRUCTIONS.md` for Java build, DEX injection, and APK repackaging
 3. Build JNI libraries and replace target `.so` files in APK
 4. Install and verify file picker + custom level loading flow
+
+## Library
+
+- BNM Library: https://github.com/ByNameModding/BNM-Android (official BNM repository)
+- Dobby: https://github.com/jmpews/Dobby (inline hooking used by BNM)
+
 
 ### Disclaimer
 This repository is for educational and research purposes only. Make sure your usage complies with software terms and local laws.
