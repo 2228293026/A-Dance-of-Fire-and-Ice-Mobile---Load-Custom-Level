@@ -30,10 +30,12 @@ using namespace BNM::Defaults;
 
 #define LOG_TAG "IL2CPP_EXPORTS"
 
+/*
 uintptr_t G_IL2CPP;
 Image unityCore;
 Image assembly_csharp;
 Image unityUI;
+*/
 
 // ============ 缓存反射对象 (全局静态) ============
 
@@ -287,7 +289,7 @@ Array<String*>* Hooked_OpenFilePanel(String* title, String* directory, String* e
     }
     array->m_Items[0] = CreateMonoString(filePath);
 
-    LOGD("Returning file path to Unity: %s", filePath.c_str());
+    LOGD("Returning file path to Unity: %s", array->m_Items[0]->str().c_str());
     return array;
 }
 
@@ -502,9 +504,11 @@ bool IsScreenPointInsideUIElements_Hook(UnityEngine::Object* instance, Vector2 p
 
 // ============ start() 函数 ============
 void start() {
+    /*
     assembly_csharp = Image("Assembly-CSharp");
     unityCore = Image("UnityEngine.CoreModule");
     unityUI = Image("UnityEngine.UI");
+    */
 
     // 初始化所有缓存
     InitModCache();
