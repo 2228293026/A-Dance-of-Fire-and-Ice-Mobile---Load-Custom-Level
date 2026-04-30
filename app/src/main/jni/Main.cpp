@@ -612,6 +612,7 @@ void start() {
 
     auto mobile = Class("","ADObase").GetMethod("get_isMobile");
     //BasicHook(mobile, IsMobile, old_isMobile);
+    //未知原因hook他就崩游戏，先注释了
 
     auto pauselevelEditor = Class("","PauseMenu").GetMethod("RefreshLayout");
     BasicHook(pauselevelEditor, RefreshLayout_Hook, old_RefreshLayout);
