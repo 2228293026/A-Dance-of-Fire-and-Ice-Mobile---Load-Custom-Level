@@ -556,7 +556,7 @@ void start() {
     BasicHook(uiUpdate, scrUIController_Update, old_scrUIController_Update);
 
     auto mobile = Class("","ADObase").GetMethod("get_isMobile");
-    BasicHook(mobile, IsMobile, old_isMobile);
+    //BasicHook(mobile, IsMobile, old_isMobile);
 
     // Install file picker hook (delayed via BNM loaded event)
     JNIEnv* env = nullptr;
