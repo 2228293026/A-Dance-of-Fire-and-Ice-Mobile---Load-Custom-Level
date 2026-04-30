@@ -87,6 +87,11 @@ static Property<int> g_listCountProp;
 // ---- 其他 ----
 static Field<bool> g_dlcInitializedField;            // DLCManager.initialized
 
+// PauseMenu 相关（移除编辑器按钮）
+static Class g_generalPauseButtonClass;               // GeneralPauseButton 类
+static Field<Array<UnityEngine::Object*>*> g_pauseButtonsField;  // PauseMenu.pauseButtons 字段
+static Field<UnityEngine::Object*> g_openInEditorButtonField;   // PauseMenu.openInEditorButton (PauseButton)
+
 // ---- String 类 (用于文件选择器) ----
 static Class g_stringClass;
 
@@ -366,6 +371,12 @@ void InitModCache() {
     g_pointerEventDataPositionProp = g_pointerEventDataClass.GetProperty("position");
     g_listCountProp = g_listRaycastResultClass.GetProperty("Count");
 
+    g_openInEditorButtonField = Class("", "PauseMenu").GetField("openInEditorButton");
+
+    // PauseMenu 相关缓存
+    g_generalPauseButtonClass = Class("", "GeneralPauseButton");
+    g_pauseButtonsField = Class("", "PauseMenu").GetField("pauseButtons");
+
     // String 类 (文件选择器)
     g_stringClass = Defaults::Get<String*>();
 }
@@ -501,6 +512,46 @@ bool IsScreenPointInsideUIElements_Hook(UnityEngine::Object* instance, Vector2 p
     g_raycastAllMethod[eventSystem].Call(eventData, results);
     return g_listCountProp[results].Get() > 0;
 }
+// PauseMenu.RefreshLayout -> 移除编辑器按钮
+void (*old_RefreshLayout)(UnityEngine::Object*);
+void RefreshLayout_Hook(UnityEngine::Object* instance) {
+    old_RefreshLayout(instance);
+
+    if (!g_get_isScnGame.Call()) return;
+
+    // 获取 openInEditorButton 对象
+    auto openInEditorBtn = g_openInEditorButtonField[instance].Get();
+    if (!openInEditorBtn) return;
+
+    // 获取 pauseButtons 数组
+    auto pauseButtonsArray = g_pauseButtonsField[instance].Get();
+    if (!pauseButtonsArray) return;
+
+    // 检查 openInEditorBtn 是否在数组中
+    bool found = false;
+    for (int i = 0; i < pauseButtonsArray->capacity; i++) {
+        if (pauseButtonsArray->m_Items[i] == static_cast<UnityEngine::Object*>(openInEditorBtn)) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) return;
+
+    // 创建新数组，过滤掉 openInEditorBtn
+    int newSize = pauseButtonsArray->capacity - 1;
+    auto newArray = g_generalPauseButtonClass.NewArray<UnityEngine::Object*>(newSize);
+    int idx = 0;
+    for (int i = 0; i < pauseButtonsArray->capacity; i++) {
+        auto item = pauseButtonsArray->m_Items[i];
+        if (item != static_cast<UnityEngine::Object*>(openInEditorBtn)) {
+            newArray->m_Items[idx++] = item;
+        }
+    }
+
+    // 写回新数组
+    g_pauseButtonsField[instance].Set(newArray);
+    LOGD("RefreshLayout_Hook: removed openInEditorButton (size %lu -> %d)", pauseButtonsArray->capacity, newSize);
+}
 
 // ============ start() 函数 ============
 void start() {
@@ -561,6 +612,9 @@ void start() {
 
     auto mobile = Class("","ADObase").GetMethod("get_isMobile");
     //BasicHook(mobile, IsMobile, old_isMobile);
+
+    auto pauselevelEditor = Class("","PauseMenu").GetMethod("RefreshLayout");
+    BasicHook(pauselevelEditor, RefreshLayout_Hook, old_RefreshLayout);
 
     // Install file picker hook (delayed via BNM loaded event)
     JNIEnv* env = nullptr;
