@@ -95,6 +95,17 @@ static Field<UnityEngine::Object*> g_openInEditorButtonField;   // PauseMenu.ope
 // ---- String 类 (用于文件选择器) ----
 static Class g_stringClass;
 
+// ---- BetaBuild 相关缓存 ----
+static Method<UnityEngine::Object*> g_getComponentMethod;
+static Method<UnityEngine::Object*> g_getTMPComponentGeneric;
+static Property<String*> g_tmpTextProperty;
+static Method<Vector2> g_getAnchoredPositionMethod;
+static Method<void> g_setAnchoredPositionMethod;
+static Method<void> g_setSizeDeltaMethod;
+static Field<bool> g_setBuildTextField;
+static Method<bool> g_debugMethod;
+static Method<UnityEngine::Object*> g_getRectTransformMethod;  // GetComponent<RectTransform>()
+
 // ============ 辅助函数 (使用缓存) ============
 void SetActive(UnityEngine::Object* gameObject, bool active) {
     if (!gameObject) return;
@@ -379,6 +390,22 @@ void InitModCache() {
 
     // String 类 (文件选择器)
     g_stringClass = Defaults::Get<String*>();
+
+    // BetaBuild 相关缓存
+    g_debugMethod = Class("", "RDC").GetMethod("get_debug");
+
+    g_setBuildTextField = Class("", "scrEnableIfBeta").GetField("setBuildText");
+
+    g_getComponentMethod = Class("UnityEngine", "Component").GetMethod("GetComponent", 0);
+    g_getTMPComponentGeneric = g_getComponentMethod.GetGeneric({ Class("TMPro", "TMP_Text") });
+
+    g_tmpTextProperty = Class("TMPro", "TMP_Text").GetProperty("text");
+
+    auto rectTransformClass = Class("UnityEngine", "RectTransform");
+    g_getAnchoredPositionMethod = rectTransformClass.GetMethod("get_anchoredPosition");
+    g_setAnchoredPositionMethod = rectTransformClass.GetMethod("set_anchoredPosition");
+    g_setSizeDeltaMethod = rectTransformClass.GetMethod("set_sizeDelta");
+    g_getRectTransformMethod = g_getComponentMethod.GetGeneric({ Class("UnityEngine", "RectTransform") });
 }
 
 // ============ Hook 函数实现 (全部使用缓存) ============
@@ -512,6 +539,7 @@ bool IsScreenPointInsideUIElements_Hook(UnityEngine::Object* instance, Vector2 p
     g_raycastAllMethod[eventSystem].Call(eventData, results);
     return g_listCountProp[results].Get() > 0;
 }
+
 // PauseMenu.RefreshLayout -> 移除编辑器按钮
 void (*old_RefreshLayout)(UnityEngine::Object*);
 void RefreshLayout_Hook(UnityEngine::Object* instance) {
@@ -551,6 +579,39 @@ void RefreshLayout_Hook(UnityEngine::Object* instance) {
     // 写回新数组
     g_pauseButtonsField[instance].Set(newArray);
     LOGD("RefreshLayout_Hook: removed openInEditorButton (size %lu -> %d)", pauseButtonsArray->capacity, newSize);
+}
+
+void BetaBuild(UnityEngine::Object *instance) {
+
+    // 利用缓存的 GetComponent<TMP_Text>()
+    auto textComponent = g_getTMPComponentGeneric[instance].Call();
+/*
+    if (g_debugMethod.Call()) {
+        if (textComponent) {
+            UnityEngine::Object* go = GetGameObject(textComponent);
+            SetActive(go, false);
+        }
+        return;
+    }
+*/
+
+    g_setBuildTextField[instance].Set(true);
+
+    if (textComponent) {
+        g_tmpTextProperty[textComponent].Set(CreateMonoString("Mod Version 1.0.2"));
+/*
+        // 使用缓存的 GetComponent<RectTransform>()
+        auto rectTransform = g_getRectTransformMethod[textComponent].Call();
+
+        if (rectTransform) {
+            Vector2 newPos(0.0f, -900.0f);
+            g_setAnchoredPositionMethod[rectTransform].Call(newPos);
+
+            Vector2 newSize(300.0f, 50.0f);
+            g_setSizeDeltaMethod[rectTransform].Call(newSize);
+        }
+*/
+    }
 }
 
 // ============ start() 函数 ============
@@ -616,6 +677,9 @@ void start() {
 
     auto pauselevelEditor = Class("","PauseMenu").GetMethod("RefreshLayout");
     BasicHook(pauselevelEditor, RefreshLayout_Hook, old_RefreshLayout);
+
+    auto betaBuild_Hook = Class("", "scrEnableIfBeta").GetMethod("Awake");
+    BasicHook(betaBuild_Hook, BetaBuild, (void*)nullptr);
 
     // Install file picker hook (delayed via BNM loaded event)
     JNIEnv* env = nullptr;
