@@ -25,7 +25,7 @@ namespace BNM {
         @brief Macro function for checking if pointer points to valid address.
         @return True if address is valid.
     */
-    template <typename T, typename = std::enable_if<std::is_pointer<T>::value>>
+    template <typename T, typename = std::enable_if<std::is_pointer_v<T>>>
     inline bool IsAllocated(T x) {
 #ifdef BNM_ALLOW_SAFE_IS_ALLOCATED
         if (!x) return false;
@@ -143,8 +143,7 @@ namespace BNM {
         @return Unmarshaled unity object
     */
     inline BNM_INT_PTR UnmarshalUnityObject(BNM_INT_PTR gcHandlePtr) {
-        auto gcHandle = *(BNM_INT_PTR *)gcHandlePtr;
-        return gcHandle & ~(BNM_INT_PTR)1;
+        return *(BNM_INT_PTR *)(gcHandlePtr & ~(BNM_INT_PTR)1);
     }
 #endif
 

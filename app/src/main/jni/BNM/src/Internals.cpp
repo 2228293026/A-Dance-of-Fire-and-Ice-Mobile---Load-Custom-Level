@@ -1,4 +1,4 @@
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 namespace BNM::Internal {
     States states{};

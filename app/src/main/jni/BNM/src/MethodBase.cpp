@@ -1,6 +1,6 @@
 #include <BNM/MethodBase.hpp>
 #include <BNM/DebugMessages.hpp>
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 using namespace BNM;
 

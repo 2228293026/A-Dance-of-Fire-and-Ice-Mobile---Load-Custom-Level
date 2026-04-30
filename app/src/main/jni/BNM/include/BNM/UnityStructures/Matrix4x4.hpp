@@ -98,6 +98,50 @@ namespace BNM::Structures::Unity {
             m_Data[15] = 1.0F;
             return *this;
         }
+        [[nodiscard]] inline Quaternion rotation() const {
+            float m00 = m_Data[0], m01 = m_Data[4], m02 = m_Data[8];
+            float m10 = m_Data[1], m11 = m_Data[5], m12 = m_Data[9];
+            float m20 = m_Data[2], m21 = m_Data[6], m22 = m_Data[10];
+
+            float len0 = std::sqrt(m00 * m00 + m01 * m01 + m02 * m02);
+            float len1 = std::sqrt(m10 * m10 + m11 * m11 + m12 * m12);
+            float len2 = std::sqrt(m20 * m20 + m21 * m21 + m22 * m22);
+
+            if (len0 > 1e-6f) { m00 /= len0; m01 /= len0; m02 /= len0; }
+            if (len1 > 1e-6f) { m10 /= len1; m11 /= len1; m12 /= len1; }
+            if (len2 > 1e-6f) { m20 /= len2; m21 /= len2; m22 /= len2; }
+
+            Quaternion q;
+            float trace = m00 + m11 + m22;
+
+            if (trace > 0.0f) {
+                float s = std::sqrt(trace + 1.0f) * 2.0f;
+                q.w = 0.25f * s;
+                q.x = (m21 - m12) / s;
+                q.y = (m02 - m20) / s;
+                q.z = (m10 - m01) / s;
+            } else if (m00 > m11 && m00 > m22) {
+                float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f;
+                q.w = (m21 - m12) / s;
+                q.x = 0.25f * s;
+                q.y = (m01 + m10) / s;
+                q.z = (m02 + m20) / s;
+            } else if (m11 > m22) {
+                float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f;
+                q.w = (m02 - m20) / s;
+                q.x = (m01 + m10) / s;
+                q.y = 0.25f * s;
+                q.z = (m12 + m21) / s;
+            } else {
+                float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f;
+                q.w = (m10 - m01) / s;
+                q.x = (m02 + m20) / s;
+                q.y = (m12 + m21) / s;
+                q.z = 0.25f * s;
+            }
+
+            return q;
+        }
         [[nodiscard]] inline Vector3 MultiplyVector3(const Vector3& inV) const {
             Vector3 res;
             res.x = m_Data[0] * inV.x + m_Data[4] * inV.y + m_Data[8] * inV.z;
@@ -140,14 +184,28 @@ namespace BNM::Structures::Unity {
             output.z = m_Data[2] * inV.x + m_Data[6] * inV.y + m_Data[10] * inV.z + m_Data[14] * inV.w;
             output.w = m_Data[3] * inV.x + m_Data[7] * inV.y + m_Data[11] * inV.z + m_Data[15] * inV.w;
         }
-        [[nodiscard]] inline Vector3 MultiplyPoint3(const Vector3& inV) const {
+        [[nodiscard]] inline Vector3 MultiplyPoint(const Vector3& point) const {
+            Vector3 result;
+            result.x = m_Data[0] * point.x + m_Data[4] * point.y + m_Data[8] * point.z + m_Data[12];
+            result.y = m_Data[1] * point.x + m_Data[5] * point.y + m_Data[9] * point.z + m_Data[13];
+            result.z = m_Data[2] * point.x + m_Data[6] * point.y + m_Data[10] * point.z + m_Data[14];
+            float w = m_Data[3] * point.x + m_Data[7] * point.y + m_Data[11] * point.z + m_Data[15];
+            if (std::abs(w) > 1e-6f) {
+                float invW = 1.0f / w;
+                result.x *= invW;
+                result.y *= invW;
+                result.z *= invW;
+            }
+            return result;
+        }
+        [[nodiscard]] inline Vector3 MultiplyPoint3x4(const Vector3& inV) const {
             Vector3 res;
             res.x = m_Data[0] * inV.x + m_Data[4] * inV.y + m_Data[8] * inV.z + m_Data[12];
             res.y = m_Data[1] * inV.x + m_Data[5] * inV.y + m_Data[9] * inV.z + m_Data[13];
             res.z = m_Data[2] * inV.x + m_Data[6] * inV.y + m_Data[10] * inV.z + m_Data[14];
             return res;
         }
-        inline void MultiplyPoint3(const Vector3& inV, Vector3& output) const {
+        inline void MultiplyPoint3x4(const Vector3& inV, Vector3& output) const {
             output.x = m_Data[0] * inV.x + m_Data[4] * inV.y + m_Data[8] * inV.z + m_Data[12];
             output.y = m_Data[1] * inV.x + m_Data[5] * inV.y + m_Data[9] * inV.z + m_Data[13];
             output.z = m_Data[2] * inV.x + m_Data[6] * inV.y + m_Data[10] * inV.z + m_Data[14];
@@ -772,13 +830,13 @@ namespace BNM::Structures::Unity {
         for (int i = 0; i < count; i++) out[i] = m.MultiplyPoint3(in[i]);
     }
     inline void TransformPoints3x4(const Matrix4x4& matrix, const Vector3* in, Vector3* out, int count) {
-        for (int i = 0; i < count; i++) out[i] = matrix.MultiplyPoint3(in[i]);
+        for (int i = 0; i < count; i++) out[i] = matrix.MultiplyPoint3x4(in[i]);
     }
     inline void TransformPoints3x3(const Matrix4x4& matrix, const Vector3* in, size_t inStride, Vector3* out, size_t outStride, int count) {
         auto m = Matrix3x3(matrix);
         for (int i = 0; i < count; ++i, in = Stride(in, inStride), out = Stride(out, outStride)) *out = m.MultiplyPoint3(*in);
     }
     inline void TransformPoints3x4(const Matrix4x4& matrix, const Vector3* in, size_t inStride, Vector3* out, size_t outStride, int count) {
-        for (int i = 0; i < count; ++i, in = Stride(in, inStride), out = Stride(out, outStride)) *out = matrix.MultiplyPoint3(*in);
+        for (int i = 0; i < count; ++i, in = Stride(in, inStride), out = Stride(out, outStride)) *out = matrix.MultiplyPoint3x4(*in);
     }
 }

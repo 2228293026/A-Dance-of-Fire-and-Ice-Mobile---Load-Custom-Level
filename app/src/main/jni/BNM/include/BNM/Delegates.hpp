@@ -33,7 +33,7 @@ namespace BNM {
             @brief Get method of delegate.
             @return MethodBase if delegate isn't null, otherwise empty MethodBase.
         */
-        inline BNM::MethodBase GetMethod() const;
+        BNM::MethodBase GetMethod() const;
 
         /**
             @brief Create delegate from method.
@@ -69,7 +69,7 @@ namespace BNM {
             @brief Get methods of delegate.
             @return Vector of MethodBase if delegate isn't null, otherwise empty vector.
         */
-        inline std::vector<BNM::MethodBase> GetMethods() const;
+        std::vector<BNM::MethodBase> GetMethods() const;
 
         /**
             @brief Add delegate.

@@ -21,7 +21,6 @@ using namespace BNM;
 using namespace BNM::Operators;
 using namespace IL2CPP;
 using namespace BNM::UnityEngine;
-using namespace BNM::ADOFAI;
 using namespace BNM::Structures::Mono;
 using namespace BNM::Structures::Unity;
 using namespace BNM::IL2CPP;
@@ -184,8 +183,8 @@ void SetActive(UnityEngine::Object* gameObject, bool active) {
 UnityEngine::Object* GetGameObject(UnityEngine::Object* component) {
     //LOGD("Getting GameObject from component: %p", component);
     Class componentClass = Class("UnityEngine", "Component");
-    Method<UnityEngine::Object*> getGameObjectMethod = componentClass.GetMethod("get_gameObject");
-    UnityEngine::Object* result = getGameObjectMethod[component].Call();
+    Property<UnityEngine::Object*> getGameObjectMethod = componentClass.GetProperty("gameObject");
+    UnityEngine::Object* result = getGameObjectMethod[component].Get();
     //LOGD("GameObject: %p", result);
     return result;
 }
@@ -416,7 +415,6 @@ void InstallFilePickerHook() {
 }
 
 
-bool (*old_isEditor)();
 bool IsEditorMet() {
     return true;
 }
@@ -484,7 +482,6 @@ void ShowHitTextMet(UnityEngine::Object *instance,HitMargin hitMargin,Vector3 po
     if (hitMargin != HitMargin::Perfect)
          old_scrController_ShowHitText(instance,hitMargin,position,angle);
 }
-String (*old_dlcPath)();
 String* dlc() {
     return CreateMonoString("/sdcard/DLC/Bundles");
 }
@@ -497,7 +494,6 @@ bool IsMobile() {
         return old_isMobile();
     }
 }
-DifficultyUIMode (*old_scrMisc_DetermineDifficultyUIMode)();
 DifficultyUIMode DetermineDifficultyUIModeMet() {
     return DifficultyUIMode::ShowAll;
 }
@@ -540,21 +536,17 @@ void PlayMet(UnityEngine::Object *instance) {
     Method<bool> GetisOfficialLevel = ADOBase.GetMethod("get_isOfficialLevel");
     if (GetisOfficialLevel.Call()) UseNoFail.Set(false);
 }
-bool (*old_RDC_forceUnlockAllLevels)();
 bool RDC_forceUnlockAllLevelsMet() {
     return true;
 }
 
-bool (*old_ADOFAI_LevelEventInfo_taroDLCCheck)();
 bool TaroDLCCheckMet() {
     return true;
 }
 
-bool (*old_ADOBase_isUnityEditor)();
 bool IsUnityEditorMet() {
     return true;
 }
-bool (*old_scrPlanet_GetMultipressPenalty)();
 bool scrPlanet_GetMultipressPenaltyMet() {
     return false;
 }
@@ -566,6 +558,59 @@ void scrRing_Update(UnityEngine::Object* instance) {
     UnityEngine::Object* transform = get_transform[instance].Call();
     Property<Vector3> localScaleProp = Class("UnityEngine", "Transform").GetProperty("localScale");
     localScaleProp[transform].Set(Vector3::zero);
+}
+void (*old_scrUIController_Update)(UnityEngine::Object* );
+void scrUIController_Update(UnityEngine::Object* instance) {
+    old_scrUIController_Update(instance);
+    Field<UnityEngine::Object*>pauseButton = Class("","scrUIController").GetField("pauseButton");
+    UnityEngine::Object* b = pauseButton[instance].Get();
+    UnityEngine::Object* buttonGameObject = GetGameObject(b);
+    SetActive(buttonGameObject,false);
+}
+bool IsScreenPointInsideUIElements_Hook(UnityEngine::Object* instance, Vector2 position) {
+    // Get EventSystem.current (static property)
+    auto eventSystemClass = Class("UnityEngine.EventSystems", "EventSystem");
+    auto currentProp = eventSystemClass.GetProperty("current");
+    auto currentPropTyped = Property<UnityEngine::Object*>(currentProp);
+    UnityEngine::Object* eventSystem = currentPropTyped.Get();
+    if (!eventSystem) {
+        LOGE("EventSystem.current is null");
+        return false;
+    }
+
+    // Create PointerEventData with EventSystem
+    auto pointerEventDataClass = Class("UnityEngine.EventSystems", "PointerEventData");
+    auto eventData = pointerEventDataClass.CreateNewObjectParameters(eventSystem);
+    if (!eventData) {
+        LOGE("Failed to create PointerEventData");
+        return false;
+    }
+
+    // Set eventData.position = position
+    auto positionProp = pointerEventDataClass.GetProperty("position");
+    auto posPropTyped = Property<Vector2>(positionProp);
+    posPropTyped[eventData].Set(position);
+
+    // Create List<RaycastResult>
+    auto raycastResultClass = Class("UnityEngine.EventSystems", "RaycastResult");
+    auto listClass = Class("System.Collections.Generic", "List`1");
+    auto genericListClass = listClass.GetGeneric({ raycastResultClass.GetCompileTimeClass() });
+    auto results = genericListClass.CreateNewObjectParameters();
+    if (!results) {
+        LOGE("Failed to create List<RaycastResult>");
+        return false;
+    }
+
+    // Call EventSystem.RaycastAll(eventData, results)
+    Method<void> raycastAll = eventSystemClass.GetMethod("RaycastAll");
+    raycastAll[eventSystem].Call(eventData, results);
+
+    // Get results.Count
+    auto countProp = genericListClass.GetProperty("Count");
+    auto countPropTyped = Property<int>(countProp);
+    int count = countPropTyped[results].Get();
+
+    return count > 0;
 }
 
 void start() {
@@ -585,21 +630,21 @@ void start() {
     auto OttoButtonController_Update_Hook = Class("","OttoButtonController").GetMethod("Update");
     BasicHook(OttoButtonController_Update_Hook, OttoButtonController_Update,old_OttoButtonController_Update);
     auto RDC_forceUnlockAllLevels = Class("","RDC").GetMethod("get_forceUnlockAllLevels");
-    BasicHook(RDC_forceUnlockAllLevels, RDC_forceUnlockAllLevelsMet,old_RDC_forceUnlockAllLevels);
+    BasicHook(RDC_forceUnlockAllLevels, RDC_forceUnlockAllLevelsMet,(void*)nullptr);
     auto scrPlanet_GetMultipressPenalty = Class("","scrPlanet").GetMethod("GetMultipressPenalty");
-    BasicHook(scrPlanet_GetMultipressPenalty, scrPlanet_GetMultipressPenaltyMet,old_scrPlanet_GetMultipressPenalty);
+    BasicHook(scrPlanet_GetMultipressPenalty, scrPlanet_GetMultipressPenaltyMet,(void*)nullptr);
     auto scrMisc_DetermineDifficultyUIMode = Class("","scrMisc").GetMethod("DetermineDifficultyUIMode");
-    BasicHook(scrMisc_DetermineDifficultyUIMode, DetermineDifficultyUIModeMet, old_scrMisc_DetermineDifficultyUIMode);
+    BasicHook(scrMisc_DetermineDifficultyUIMode, DetermineDifficultyUIModeMet, (void*)nullptr);
     
     auto ADOBase_isUnityEditor = Class("","ADOBase").GetMethod("get_isUnityEditor");
-    BasicHook(ADOBase_isUnityEditor, IsUnityEditorMet,old_ADOBase_isUnityEditor);
+    BasicHook(ADOBase_isUnityEditor, IsUnityEditorMet,(void*)nullptr);
     auto scrRing_Update_Hook = Class("","scrRing").GetMethod("Update");
     BasicHook(scrRing_Update_Hook, scrRing_Update,old_scrRing_Update);
 
     auto scrControllerClass_GetShowHitTextMethod = Class("","scrController").GetMethod("ShowHitText");
     BasicHook(scrControllerClass_GetShowHitTextMethod, ShowHitTextMet,old_scrController_ShowHitText);
     auto dlcPath = Class("","GCNS").GetMethod("get_BundlesLoadPath");
-    BasicHook(dlcPath, dlc,old_dlcPath);
+    BasicHook(dlcPath, dlc,(void*)nullptr);
     auto GetisMobile = Class("","ADOBase").GetMethod("get_isMobile");
     //BasicHook(GetisMobile, IsMobile,old_isMobile);
     auto QuitToMainMenu = Class("","scrController").GetMethod("QuitToMainMenu");
@@ -607,11 +652,15 @@ void start() {
     auto scrControllerClass_RestartMethod = Class("","scrController").GetMethod("RestartProgress");
     BasicHook(scrControllerClass_RestartMethod, RestartMet,old_scrController_Restart);
     auto ADOFAI_LevelEventInfo_taroDLCCheck = Class("ADOFAI","LevelEventInfo").GetMethod("get_taroDLCCheck");
-    BasicHook(ADOFAI_LevelEventInfo_taroDLCCheck, TaroDLCCheckMet,old_ADOFAI_LevelEventInfo_taroDLCCheck);
+    BasicHook(ADOFAI_LevelEventInfo_taroDLCCheck, TaroDLCCheckMet,(void*)nullptr);
     auto Dev_ = Class("ADOFAI", "LevelEventInfo").GetMethod("get_isActive");
-    BasicHook(Dev_, IsEditorMet, old_isEditor);
+    BasicHook(Dev_, IsEditorMet, (void*)nullptr);
+    auto IsScreenPointInsideUIElements_Method = Class("", "scrController").GetMethod("IsScreenPointInsideUIElements");
+    BasicHook(IsScreenPointInsideUIElements_Method, IsScreenPointInsideUIElements_Hook, (void*)nullptr);
+    auto scrUIController_Update_Method = Class("","scrUIController").GetMethod("Update");
+    BasicHook(scrUIController_Update_Method, scrUIController_Update,old_scrUIController_Update);
     auto Dev = Class("UnityEngine", "Application", Image("UnityEngine.CoreModule")).GetMethod("get_isEditor");
-    //BasicHook(Dev, IsEditorMet, old_isEditor);
+    //BasicHook(Dev, IsEditorMet, (void*)nullptr);
 
     //auto Dev_d = Il2CppGetMethodOffset(unityCore, "UnityEngine", "Application", "get_isEditor", 0);
     //DobbyHook(Dev_d, (void*)IsEditorMet,(void**)&old_isEditor);

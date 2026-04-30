@@ -212,12 +212,9 @@ namespace BNM::UnityEngine {
             @brief Invoke event.
             @param parameters Event parameters
         */
-        inline void Invoke(Parameters ...parameters) const {
-            InvokePersistent(parameters...);
-
-            if (!m_PersistentCalls || !m_PersistentCalls->m_Calls || m_PersistentCalls->m_Calls->size) return;
-
-            InvokeCalls(parameters...);
+        inline void Invoke(Parameters ...parameters) {
+            if (m_CallsDirty) InvokePersistent(parameters...);
+            else InvokeCalls(parameters...);
         }
 
         /**
@@ -228,7 +225,7 @@ namespace BNM::UnityEngine {
             Structures::Mono::List<PersistentCall *> *calls;
 
             if (!m_PersistentCalls) return;
-            if (!(calls = m_PersistentCalls->m_Calls)) return;
+            if (calls = m_PersistentCalls->m_Calls; !calls) return;
 
             for (int i = 0; i < calls->size; ++i) {
                 auto persistentCall = calls->At(i);
@@ -236,38 +233,63 @@ namespace BNM::UnityEngine {
                 auto argumentType = GetArgumentType(persistentCall);
                 auto targetType = GetTargetType(persistentCall);
 
-                MethodBase methodBase{};
+                Method<void> method{};
 
                 auto methodName = persistentCall->m_MethodName->str();
 
                 switch (persistentCall->m_Mode) {
                     case PersistentListenerMode::EventDefined:
-                        methodBase = targetType.GetMethod(methodName, {BNM::Defaults::Get<Parameters>()...});
+                        if constexpr (sizeof...(Parameters) == 0)
+                            method = targetType.GetMethod(methodName, 0);
+                        else
+                            method = targetType.GetMethod(methodName, {Defaults::Get<Parameters>()...});
                         break;
                     case PersistentListenerMode::Void:
-                        methodBase = targetType.GetMethod(methodName, 0);
+                        method = targetType.GetMethod(methodName, 0);
                         break;
                     case PersistentListenerMode::Object:
-                        methodBase = targetType.GetMethod(methodName, {argumentType.Alive() ? argumentType : BNM::Defaults::Get<Object *>()});
+                        method = targetType.GetMethod(methodName, {argumentType.Alive() ? argumentType : Defaults::Get<Object *>()});
                         break;
                     case PersistentListenerMode::Int:
-                        methodBase = targetType.GetMethod(methodName, {BNM::Defaults::Get<int>()});
+                        method = targetType.GetMethod(methodName, {Defaults::Get<int>()});
                         break;
                     case PersistentListenerMode::Float:
-                        methodBase = targetType.GetMethod(methodName, {BNM::Defaults::Get<float>()});
+                        method = targetType.GetMethod(methodName, {Defaults::Get<float>()});
                         break;
                     case PersistentListenerMode::String:
-                        methodBase = targetType.GetMethod(methodName, {BNM::Defaults::Get<Structures::Mono::String *>()});
+                        method = targetType.GetMethod(methodName, {Defaults::Get<Structures::Mono::String *>()});
                         break;
                     case PersistentListenerMode::Bool:
-                        methodBase = targetType.GetMethod(methodName, {BNM::Defaults::Get<bool>()});
+                        method = targetType.GetMethod(methodName, {Defaults::Get<bool>()});
                         break;
                 }
-                if (!methodBase.IsValid() || !methodBase._isStatic && !persistentCall->m_Target) continue;
+                if (!method.IsValid() || !method._isStatic && !persistentCall->m_Target) continue;
 
-                if (methodBase._isStatic) return methodBase.cast<void>()(parameters...);
+                if (!method._isStatic) method.SetInstance(persistentCall->m_Target);
 
-                methodBase.cast<void>()[persistentCall->m_Target](parameters...);
+                switch (persistentCall->m_Mode) {
+                    case PersistentListenerMode::EventDefined:
+                        method(parameters...);
+                        break;
+                    case PersistentListenerMode::Void:
+                        method();
+                        break;
+                    case PersistentListenerMode::Object:
+                        method(persistentCall->m_Arguments->m_ObjectArgument);
+                        break;
+                    case PersistentListenerMode::Int:
+                        method(persistentCall->m_Arguments->m_IntArgument);
+                        break;
+                    case PersistentListenerMode::Float:
+                        method(persistentCall->m_Arguments->m_FloatArgument);
+                        break;
+                    case PersistentListenerMode::String:
+                        method(persistentCall->m_Arguments->m_StringArgument);
+                        break;
+                    case PersistentListenerMode::Bool:
+                        method(persistentCall->m_Arguments->m_BoolArgument);
+                        break;
+                }
             }
         }
 

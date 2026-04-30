@@ -1,7 +1,7 @@
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/Utils.hpp>
 #include <BNM/Method.hpp>
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 using namespace BNM;
 
@@ -10,9 +10,8 @@ Structures::Mono::String *BNM::CreateMonoString(const std::string_view &str) {
 }
 
 void *BNM::GetExternMethod(const std::string_view &str) {
-    auto c_str = str.data();
-    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall(c_str);
-    BNM_LOG_WARN_IF(!ret, DBG_BNM_MSG_GetExternMethod_Warn, c_str);
+    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall(str.data());
+    BNM_LOG_WARN_IF(!ret, DBG_BNM_MSG_GetExternMethod_Warn, str.data());
     return ret;
 }
 
@@ -31,7 +30,7 @@ bool BNM::InvokeHookImpl(IL2CPP::MethodInfo *info, void *newMet, void **oldMet) 
     return true;
 }
 
-bool BNM::VirtualHookImpl(BNM::Class targetClass, IL2CPP::MethodInfo *info, void *newMet, void **oldMet) {
+bool BNM::VirtualHookImpl(Class targetClass, IL2CPP::MethodInfo *info, void *newMet, void **oldMet) {
     if (!info || !targetClass) return false;
     uint16_t i = 0;
     NEXT:
@@ -76,12 +75,12 @@ static const char *CompileTimeClassModifiers[] = {
         "Reference"
 };
 
-static void LogCompileTimeClassInfo(BNM::CompileTimeClass::_BaseInfo *info, const BNM::CompileTimeClass &tmp) {
+static void LogCompileTimeClassInfo(CompileTimeClass::_BaseInfo *info, const CompileTimeClass &tmp) {
     switch (info->_baseType) {
-        case BNM::CompileTimeClass::_BaseType::None:
+        case CompileTimeClass::_BaseType::None:
             BNM_LOG_ERR("\tNone");
             break;
-        case BNM::CompileTimeClass::_BaseType::Class: {
+        case CompileTimeClass::_BaseType::Class: {
             auto classInfo = (CompileTimeClass::_ClassInfo *) info;
             BNM_LOG_ERR("\tClass( imageName: \"%s\", namespace: \"%s\", name: \"%s\") - %s", classInfo->_imageName, classInfo->_namespace, classInfo->_name, tmp._loadedClass.str().data());
         } break;
@@ -89,10 +88,10 @@ static void LogCompileTimeClassInfo(BNM::CompileTimeClass::_BaseInfo *info, cons
             auto innerInfo = (CompileTimeClass::_InnerInfo *) info;
             BNM_LOG_ERR("\tClass( name: \"%s\") - %s", innerInfo->_name, tmp._loadedClass.str().data());
         } break;
-        case BNM::CompileTimeClass::_BaseType::Modifier: {
+        case CompileTimeClass::_BaseType::Modifier: {
             BNM_LOG_ERR("\tModifier(\"%s\") - %s", CompileTimeClassModifiers[(uint8_t) ((CompileTimeClass::_ModifierInfo *) info)->_modifierType], tmp._loadedClass.str().data());
         } break;
-        case BNM::CompileTimeClass::_BaseType::Generic: {
+        case CompileTimeClass::_BaseType::Generic: {
             auto genericInfo = (CompileTimeClass::_GenericInfo *) info;
             BNM_LOG_ERR("\tGeneric: ");
             for (auto type : genericInfo->_types) BNM_LOG_ERR("\t\t%s", type.ToClass().str().data());
@@ -107,7 +106,7 @@ namespace CompileTimeClassProcessors {
     extern ProcessorType processors[(uint8_t) CompileTimeClass::_BaseType::MaxCount];
 }
 
-void BNM::Utils::LogCompileTimeClass(const BNM::CompileTimeClass &compileTimeClass) {
+void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
     if (compileTimeClass._stack.IsEmpty()) return BNM_LOG_ERR("\t" DBG_BNM_MSG_ClassesManagement_LogCompileTimeClass_None);
 
     CompileTimeClass tmp{};
@@ -122,7 +121,7 @@ void BNM::Utils::LogCompileTimeClass(const BNM::CompileTimeClass &compileTimeCla
             BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (size_t)index);
             continue;
         }
-        CompileTimeClassProcessors::processors[index](tmp, (BNM::CompileTimeClass::_BaseInfo *) info);
+        CompileTimeClassProcessors::processors[index](tmp, info);
 
         LogCompileTimeClassInfo(info, tmp);
 
@@ -148,9 +147,9 @@ void BNM::DetachIl2Cpp() {
 }
 
 void *BNM::Allocate(size_t size) {
-    return Internal::il2cppMethods.il2cpp_alloc(size);
+    return Internal::il2cppMethods.il2cpp_gc_alloc_fixed(size);
 }
 
 void BNM::Free(void *ptr) {
-    return Internal::il2cppMethods.il2cpp_free(ptr);
+    return Internal::il2cppMethods.il2cpp_gc_free_fixed(ptr);
 }

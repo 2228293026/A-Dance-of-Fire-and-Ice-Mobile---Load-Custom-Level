@@ -49,7 +49,7 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 #define BNM_CLASSES_MANAGEMENT
 
 //! Включить код создания coroutine. ТРЕБУЕТСЯ ClassesManagement!
-//! Enable coroutine creation code. REQUIRED ClassesManagement!
+//! Enable coroutine creation code. REQUIRES ClassesManagement!
 #define BNM_COROUTINE
 
 //! Отключить авто подмену через таблицу виртуальных методов в ClassesManagement
@@ -64,7 +64,7 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 //! Use il2cpp's allocator for Mono arrays instead of basic
 #define BNM_USE_IL2CPP_ALLOCATOR
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 
 //! Методы str() в структурах
 //! str() methods in structures
@@ -90,7 +90,7 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 
 #define BNM_WARNING
 
-//#endif
+#endif
 
 //! Добавьте ваш шифровщик строк
 //! Add your string encryptor
@@ -140,8 +140,8 @@ template<typename PTR_T>
 inline void Unhook(PTR_T ptr) {
     if ((void *) ptr != nullptr) DobbyDestroy((void *)ptr);
 }
-/*
 
+/*
 // Dummy
 #include <cassert>
 
@@ -164,6 +164,7 @@ inline void Unhook(PTR_T ptr) {
     if ((void *) ptr != nullptr) ((void)0);
 }
 */
+
 #include <dlfcn.h>
 
 // Если вам нужно скрыть вызовы dlfcn или использовать ваш dl для загрузки BNM в игре извне
@@ -172,7 +173,6 @@ inline void Unhook(PTR_T ptr) {
 #define BNM_dlsym dlsym
 #define BNM_dlclose dlclose
 #define BNM_dladdr dladdr
-
 
 #include <cstdlib>
 
@@ -231,4 +231,4 @@ namespace BNM {
 #endif
 }
 
-#define BNM_VER "2.5.0"
+#define BNM_VER "2.5.2"

@@ -26,7 +26,7 @@ namespace BNM::Structures::Unity {
         inline static float Component(Vector4 a, Vector4 b) { return Dot(a, b) / Magnitude(b); }
         inline static float Distance(Vector4 a, Vector4 b) { return Magnitude(a - b); }
         inline static float Dot(Vector4 lhs, Vector4 rhs) { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z + lhs.w * rhs.w; }
-        inline static bool IsFinite(Vector4 f) { return Unity::IsFinite(f.x) & Unity::IsFinite(f.y) & Unity::IsFinite(f.z) && Unity::IsFinite(f.w); }
+        inline static bool IsFinite(Vector4 f) { return Unity::IsFinite(f.x) && Unity::IsFinite(f.y) && Unity::IsFinite(f.z) && Unity::IsFinite(f.w); }
         inline static Vector4 Lerp(Vector4 from, Vector4 to, float t) { return to * t + from * (1.0f - t); }
         inline static Vector4 LerpUnclamped(Vector4 from, Vector4 to, float t) { return (to - from) * t + from; }
         inline static float Magnitude(Vector4 inV) { return sqrt(Dot(inV, inV)); }

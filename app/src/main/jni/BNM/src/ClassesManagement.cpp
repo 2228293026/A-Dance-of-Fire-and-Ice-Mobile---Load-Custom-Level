@@ -2,7 +2,7 @@
 
 #ifdef BNM_CLASSES_MANAGEMENT
 
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 #define BNM_CLASS_ALLOCATED_METHODS_FLAG 0x01000000
 #define BNM_CLASS_ALLOCATED_FIELDS_FLAG 0x02000000
@@ -11,8 +11,8 @@
 
 using namespace BNM;
 
-void BNM::MANAGEMENT_STRUCTURES::AddClass(CustomClass *_class) {
-    if (!BNM::Internal::ClassesManagement::classesManagementVector)
+void MANAGEMENT_STRUCTURES::AddClass(CustomClass *_class) {
+    if (!Internal::ClassesManagement::classesManagementVector)
         Internal::ClassesManagement::classesManagementVector = new (BNM_malloc(sizeof(std::vector<MANAGEMENT_STRUCTURES::CustomClass *>))) std::vector<MANAGEMENT_STRUCTURES::CustomClass *>();
 
     Internal::ClassesManagement::classesManagementVector->push_back(_class);
@@ -23,16 +23,16 @@ void BNM::MANAGEMENT_STRUCTURES::AddClass(CustomClass *_class) {
 
 struct CustomClassInfo {
     const char *_namespace{}, *_name{}, *_imageName{};
-    BNM::Class _class{};
+    Class _class{};
 };
 
 // The code for changing the data of an existing class
-static void ModifyClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, Class target);
+static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class target);
 // Code for creating new classes
-static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, const CustomClassInfo &classInfo);
+static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const CustomClassInfo &classInfo);
 
 // Find the desired class or information about it
-static CustomClassInfo GetClassInfo(const BNM::CompileTimeClass &compileTimeClass);
+static CustomClassInfo GetClassInfo(const CompileTimeClass &compileTimeClass);
 
 // The code for creating a new image and assembling it
 static IL2CPP::Il2CppImage *MakeImage(std::string_view imageName);
@@ -64,7 +64,7 @@ void Internal::ClassesManagement::ProcessCustomClasses() {
     classesManagementVector = nullptr;
 }
 
-void ClassesManagement::ProcessClassRuntime(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass) {
+void ClassesManagement::ProcessClassRuntime(MANAGEMENT_STRUCTURES::CustomClass *customClass) {
     auto &type = customClass->_targetType;
     if (!type._stack.IsEmpty()) type._RemoveBit();
     auto info = GetClassInfo(type);
@@ -85,7 +85,7 @@ void ClassesManagement::ProcessClassRuntime(BNM::MANAGEMENT_STRUCTURES::CustomCl
     customClass->_methods.shrink_to_fit();
 }
 
-static void ModifyClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, Class target) {
+static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class target) {
     BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_ModifyClasses_Target, target.str().data());
 
     auto klass = target._data;
@@ -104,20 +104,22 @@ static void ModifyClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, Cl
         auto oldCount = klass->method_count;
         auto oldMethods = klass->methods;
 
-        std::vector<BNM::IL2CPP::MethodInfo *> methodsToAdd{};
+        std::vector<IL2CPP::MethodInfo *> methodsToAdd{};
 
         for (size_t i = 0; i < newMethodsCount; ++i) {
             auto method = customClass->_methods[i];
 
+            auto paramCount = method->_parameterTypes.size();
+
             bool isHooked = false;
             method->myInfo = ProcessCustomMethod(method, target, &isHooked);
 
-            BNM::PRIVATE_INTERNAL::GetMethodClass(method->myInfo) = klass;
+            PRIVATE_INTERNAL::GetMethodClass(method->myInfo) = klass;
 
             if (!isHooked) methodsToAdd.push_back(method->myInfo);
-            BNM_LOG_DEBUG_IF(isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Hooked_Method, (method->_isStatic == 1) ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), method->_parameterTypes.size());
-            BNM_LOG_DEBUG_IF(!isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Added_Method, (method->_isStatic == 1) ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), method->_parameterTypes.size());
-            BNM_LOG_DEBUG_IF(method->_origin && method->_origin != method->myInfo, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Overridden_Method, BNM::MethodBase(method->_origin).str().c_str());
+            BNM_LOG_DEBUG_IF(isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Hooked_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), paramCount);
+            BNM_LOG_DEBUG_IF(!isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Added_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), paramCount);
+            BNM_LOG_DEBUG_IF(method->_origin && method->_origin != method->myInfo, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Overridden_Method, MethodBase(method->_origin).str().c_str());
         }
 
         if (!methodsToAdd.empty()) {
@@ -175,7 +177,7 @@ static void ModifyClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, Cl
 
 static char forEmptyString = '\0';
 static const char *baseImageName = BNM_OBFUSCATE("Assembly-CSharp.dll");
-static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, const CustomClassInfo &classInfo) {
+static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const CustomClassInfo &classInfo) {
     Image image{};
     if (classInfo._imageName) {
         auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
@@ -188,7 +190,7 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
     } else image = Image(baseImageName);
     if (!image) image = MakeImage(classInfo._imageName);
 
-    BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Target, classInfo._namespace, classInfo._name, image._data->name);
+    BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Target, classInfo._namespace ? classInfo._namespace : &forEmptyString, classInfo._name, image._data->name);
     
     IL2CPP::Il2CppClass *parent = customClass->_baseType;
     if (!parent) parent = Internal::vmData.Object;
@@ -230,7 +232,7 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
         method->myInfo = ProcessCustomMethod(method, {});
 
 
-        BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Added_Method, (method->_isStatic == 1) ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), method->_parameterTypes.size());
+        BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Added_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), method->_parameterTypes.size());
         
         // Replacing non-static methods in the virtual methods table
         if (!method->_isStatic) for (uint16_t v = 0; v < newVtableSize; ++v) {
@@ -248,13 +250,13 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
                 }
 
                 if (!hasFinalize) hasFinalize = v == Internal::finalizerSlot;
-                method->_origin = (BNM::IL2CPP::MethodInfo *) vTable.method;
+                method->_origin = (IL2CPP::MethodInfo *) vTable.method;
                 method->_originalAddress = (void *) (vTable.method ? vTable.method->methodPointer : nullptr);
                 method->myInfo->slot = v;
                 vTable.method = method->myInfo;
                 vTable.methodPtr = method->myInfo->methodPointer;
 
-                BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Overridden_Method, BNM::MethodBase(method->_origin).str().c_str());
+                BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Overridden_Method, MethodBase(method->_origin).str().c_str());
 
                 break;
 
@@ -270,22 +272,7 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
     auto klass = customClass->myClass = (IL2CPP::Il2CppClass *) BNM_malloc(sizeof(IL2CPP::Il2CppClass) + newVTable.size() * sizeof(IL2CPP::VirtualInvokeData));
     memset(klass, 0, sizeof(IL2CPP::Il2CppClass) + newVTable.size() * sizeof(IL2CPP::VirtualInvokeData));
 
-    klass->initialized = 1;
-    klass->init_pending = 0;
-#if UNITY_VER > 182
-
-    klass->initialized_and_no_error = 1;
-
-#if UNITY_VER < 212
-    klass->has_initialization_error = 0;
-#endif
-
-#endif
-
     klass->image = image;
-
-    // Prevent il2cpp from calling LivenessState::TraverseGCDescriptor for a class
-    klass->gc_desc = nullptr;
 
     auto len = strlen(classInfo._name);
     klass->name = (char *) BNM_malloc(len + 1);
@@ -351,17 +338,18 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
     }
 
     // Completing the creation of methods
-    for (auto method : customClass->_methods) BNM::PRIVATE_INTERNAL::GetMethodClass(method->myInfo) = klass;
+    for (auto method : customClass->_methods) PRIVATE_INTERNAL::GetMethodClass(method->myInfo) = klass;
     klass->method_count = customClass->_methods.size();
     klass->methods = methods;
     klass->has_finalize = hasFinalize;
 
-    // Copy the parent flags and remove the ABSTRACT flag if it exists
-    klass->flags = klass->parent->flags & ~(0x00000080 | 0x00000020); // TYPE_ATTRIBUTE_ABSTRACT
+    // Copy the parent flags, remove the ABSTRACT and INTERFACE flag if it exists and make type PUBLIC
+    // TYPE_ATTRIBUTE_ABSTRACT, TYPE_ATTRIBUTE_INTERFACE, TYPE_ATTRIBUTE_PUBLIC
+    klass->flags = (klass->parent->flags & ~(0x00000080 | 0x00000020)) | 0x0000001;
 
     // Initialize sizes
     klass->native_size = -1;
-    klass->element_size = sizeof(void *);
+    klass->element_size = 0;
     klass->instance_size = klass->actualSize = customClass->_size;
 
     // Install a table of virtual methods
@@ -400,12 +388,13 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
     // BNM does not support creating a static field constructor (.cctor). Il2Cpp is designed so that it will never be called, and BNM does not allow you to create static fields
     klass->has_cctor = 0;
 
-    klass->has_references = 0;
+    // Useful for non Unity's Object delivered classes
+    klass->has_references = 1;
+
     klass->size_inited = 1;
     klass->is_vtable_initialized = 1;
 
 #if UNITY_VER > 182
-    klass->initializationExceptionGCHandle = (decltype(klass->initializationExceptionGCHandle)) 0;
 
 #   if UNITY_VER < 222
     klass->naturalAligment = 1;
@@ -415,6 +404,7 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
 
 #endif
     klass->enumtype = 0;
+    klass->token = 0;
     klass->minimumAlignment = 1;
     klass->is_generic = 0;
     klass->rank = 0;
@@ -430,11 +420,31 @@ static void CreateClass(BNM::MANAGEMENT_STRUCTURES::CustomClass *customClass, co
 
 #if UNITY_VER >= 212
     klass->cctor_finished_or_no_cctor = 1;
+    klass->nullabletype = 0;
 #else
     klass->cctor_finished = 1;
 #endif
 
     klass->cctor_thread = 0;
+
+
+    klass->initialized = 0;
+    klass->init_pending = 0;
+#if UNITY_VER > 182
+
+    klass->initialized_and_no_error = 0;
+    klass->initializationExceptionGCHandle = (decltype(klass->initializationExceptionGCHandle)) 0;
+
+#if UNITY_VER < 212
+    klass->has_initialization_error = 0;
+#endif
+
+#endif
+
+    klass->gc_desc = nullptr;
+
+    // Use Class::Init, to setup GC desc
+    Internal::il2cppMethods.Class$$Init(klass);
 
     // Add a class to the list of created classes
     Internal::ClassesManagement::bnmClassesMap.AddClass(image.GetInfo(), klass);
@@ -450,7 +460,7 @@ namespace CompileTimeClassProcessors {
     extern ProcessorType processors[(uint8_t) CompileTimeClass::_BaseType::MaxCount];
 }
 
-static CustomClassInfo GetClassInfo(const BNM::CompileTimeClass &compileTimeClass) {
+static CustomClassInfo GetClassInfo(const CompileTimeClass &compileTimeClass) {
     CompileTimeClass tmp{};
 
     auto &stack = compileTimeClass._stack;
@@ -463,12 +473,12 @@ static CustomClassInfo GetClassInfo(const BNM::CompileTimeClass &compileTimeClas
         auto index = (uint8_t) info->_baseType;
 
         // Protection from other types. We are not interested in Generic, Modifier, and other things that do not relate to the class hierarchy.
-        if (index != (uint8_t) BNM::CompileTimeClass::_BaseType::Class) {
+        if (index != (uint8_t) CompileTimeClass::_BaseType::Class) {
             current = current->next;
             continue;
         }
 
-        CompileTimeClassProcessors::processors[index](tmp, (BNM::CompileTimeClass::_BaseInfo *) info);
+        CompileTimeClassProcessors::processors[index](tmp, (CompileTimeClass::_BaseInfo *) info);
 
         if (tmp._loadedClass) {
             current = current->next;
@@ -478,7 +488,7 @@ static CustomClassInfo GetClassInfo(const BNM::CompileTimeClass &compileTimeClas
         bool found = true;
         auto next = current->next;
         while (next != lastElement->next) {
-            if (next->value->_baseType == BNM::CompileTimeClass::_BaseType::Class) {
+            if (next->value->_baseType == CompileTimeClass::_BaseType::Class) {
                 found = false;
                 break;
             }
@@ -633,10 +643,16 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
         return true;
     });
 
-    if (!originalMethod || BNM::PRIVATE_INTERNAL::GetMethodClass(originalMethod) != target._data) {
+    if (!originalMethod || PRIVATE_INTERNAL::GetMethodClass(originalMethod) != target._data) {
         bool isVirtual = originalMethod != nullptr && (originalMethod->flags & 0x0040) == 0x0040;
         auto parent = originalMethod;
         originalMethod = CreateMethod(method);
+
+        // Copy token to copy attributes
+        if (!method->_copyTarget.empty()) {
+            auto copyTarget = Internal::IterateMethods(target, [targetName = method->_copyTarget](IL2CPP::MethodInfo *method) { return targetName == method->name; });
+            if (copyTarget) originalMethod->token = copyTarget->token;
+        }
 
         bool hasNonVirtualParent = !isVirtual && parent;
 
@@ -646,7 +662,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
             return originalMethod;
         }
 
-        // Check if we modifying class
+        // Check if we're modifying class
         bool canDoVirtualHook = hooked && isVirtual /* Can be true only if parent not null */;
 
         if (!canDoVirtualHook) return originalMethod;
@@ -680,7 +696,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
     if ((originalMethod->flags & 0x0040) == 0 || method->_isBasicHook) goto SKIP_NON_VIRTUAL;
 
     if (auto vTable = TryFindVirtualMethod(target, originalMethod); vTable != nullptr) {
-        method->_origin = (BNM::IL2CPP::MethodInfo *) vTable->method;
+        method->_origin = (IL2CPP::MethodInfo *) vTable->method;
         method->_originalAddress = (void *) method->_origin->methodPointer;
         vTable->methodPtr = (void(*)()) method->_address;
         if (hooked) *hooked = true;
@@ -723,6 +739,9 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
 
     // If method is virtual BNM will set valid slot index later
     myInfo->slot = 65535;
+
+    // Removes crash if code trying to do metadata lookup for that method
+    myInfo->token = 0;
 
     // Set the return type
     auto methodType = method->_returnType.ToClass();
@@ -787,10 +806,10 @@ static void SetupField(IL2CPP::FieldInfo *newField, MANAGEMENT_STRUCTURES::Custo
     newField->type = BNM_I2C_NEW(Il2CppType);
     auto fieldType = field->_type.ToClass();
     if (!fieldType) fieldType = Internal::vmData.Object;
-    *((IL2CPP::Il2CppType *)newField->type) = *fieldType.GetIl2CppType();
 
-    ((IL2CPP::Il2CppType*)newField->type)->attrs |= 0x0006; // PUBLIC
-    newField->token = newField->type->attrs;
+    auto newType = (IL2CPP::Il2CppType *) newField->type;
+    *newType = *fieldType.GetIl2CppType();
+    newType->attrs = newField->token = 0x0006;
 }
 
 static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *owner) {
@@ -862,7 +881,7 @@ static void SetupTypes(IL2CPP::Il2CppClass *target) {
     IL2CPP::Il2CppType classType;
     memset(&classType, 0, sizeof(IL2CPP::Il2CppType));
     classType.type = IL2CPP::Il2CppTypeEnum::IL2CPP_TYPE_CLASS;
-    classType.attrs = 0x1; // Public
+    classType.attrs = 0x0;
     classType.pinned = 0;
     classType.byref = 0;
     classType.num_mods = 31;

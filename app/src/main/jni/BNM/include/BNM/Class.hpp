@@ -202,6 +202,19 @@ namespace BNM {
         [[nodiscard]] BNM::PropertyBase GetProperty(const std::string_view &name) const;
 
         /**
+            @brief Get property by name and type.
+
+            Tries to get property using its name.
+            If property isn't found in target class, the code will search property in parents.
+
+            @param name Target property name
+            @param type Target property type
+            
+            @return PropertyBase object
+        */
+        [[nodiscard]] BNM::PropertyBase GetProperty(const std::string_view &name, const BNM::CompileTimeClass &type) const;
+
+        /**
             @brief Get inner class by name.
 
             Tries to get inner class using its name.
@@ -441,7 +454,7 @@ namespace BNM {
             @tparam T Non pointer object type
             @return Boxed object
         */
-        template<typename T, typename = std::enable_if<!std::is_pointer<T>::value>>
+        template<typename T, typename = std::enable_if<!std::is_pointer_v<T>>>
         IL2CPP::Il2CppObject *BoxObject(T obj) const {
             BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
             if (!_data) return nullptr;
@@ -740,7 +753,7 @@ namespace BNM {
 
         @return True if object is inherited from target class.
     */
-    template<typename T, typename = std::enable_if<std::is_pointer<T>::value>>
+    template<typename T, typename = std::enable_if<std::is_pointer_v<T>>>
     bool IsA(T object, IL2CPP::Il2CppClass *_class) { return IsA<BNM::IL2CPP::Il2CppObject *>((IL2CPP::Il2CppObject *)object, _class); }
 
     /**

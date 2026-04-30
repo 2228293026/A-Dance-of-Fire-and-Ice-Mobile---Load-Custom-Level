@@ -1,6 +1,6 @@
 #include <BNM/Image.hpp>
 #include <BNM/Class.hpp>
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 BNM::Image::Image(const std::string_view &name) {
     _data = Internal::TryGetImage(name);
@@ -59,9 +59,9 @@ std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
 std::vector<BNM::Image> BNM::Image::GetImages() {
     auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
 
-    std::vector<BNM::Image> ret{assemblies.size()};
+    std::vector<Image> ret{assemblies.size()};
 
     for (auto assembly : assemblies) ret.emplace_back(Internal::il2cppMethods.il2cpp_assembly_get_image(assembly));
 
-    return std::move(ret);
+    return ret;
 }

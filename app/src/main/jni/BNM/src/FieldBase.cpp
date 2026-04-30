@@ -1,6 +1,6 @@
 #include <BNM/FieldBase.hpp>
 #include <BNM/DebugMessages.hpp>
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 using namespace BNM;
 
@@ -28,6 +28,10 @@ FieldBase::FieldBase(IL2CPP::FieldInfo *info) {
 }
 
 FieldBase &FieldBase::SetInstance(IL2CPP::Il2CppObject *val)  {
+    if (!_data) {
+        BNM_LOG_ERR(DBG_BNM_MSG_Field_SetInstance_Error);
+        return *this;
+    }
     if (_isStatic || _isConst) {
         BNM_LOG_WARN(DBG_BNM_MSG_FieldBase_SetInstance_Warn, str().c_str());
         return *this;

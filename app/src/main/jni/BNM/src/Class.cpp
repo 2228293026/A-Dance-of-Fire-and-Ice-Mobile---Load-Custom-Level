@@ -4,13 +4,13 @@
 #include <BNM/PropertyBase.hpp>
 #include <BNM/EventBase.hpp>
 #include <BNM/DebugMessages.hpp>
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 using namespace BNM;
 
-Class::Class(const IL2CPP::Il2CppObject *obj) {
-    if (!obj) return;
-    _data = obj->klass;
+Class::Class(const IL2CPP::Il2CppObject *object) {
+    if (!object) return;
+    _data = object->klass;
 }
 
 Class::Class(const IL2CPP::Il2CppType *type) {
@@ -23,7 +23,7 @@ Class::Class(const MonoType *type) {
     _data = Internal::il2cppMethods.il2cpp_class_from_il2cpp_type(type->type);
 }
 
-Class::Class(const CompileTimeClass &type) { _data = type; }
+Class::Class(const CompileTimeClass &compileTimeClass) { _data = compileTimeClass; }
 
 static IL2CPP::Il2CppClass *TryGetClassWithoutImage(const std::string_view &_namespace, const std::string_view &_name) {
     auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
@@ -66,7 +66,7 @@ std::vector<Class> Class::GetInnerClasses(bool includeParent) const {
         else break;
     } while (curClass);
 
-    return std::move(ret);
+    return ret;
 }
 
 std::vector<FieldBase> Class::GetFields(bool includeParent) const {
@@ -83,7 +83,7 @@ std::vector<FieldBase> Class::GetFields(bool includeParent) const {
         else break;
     } while (curClass);
 
-    return std::move(ret);
+    return ret;
 }
 
 std::vector<MethodBase> Class::GetMethods(bool includeParent) const {
@@ -99,7 +99,7 @@ std::vector<MethodBase> Class::GetMethods(bool includeParent) const {
         else break;
     } while (curClass);
 
-    return std::move(ret);
+    return ret;
 }
 
 std::vector<PropertyBase> Class::GetProperties(bool includeParent) const {
@@ -116,7 +116,7 @@ std::vector<PropertyBase> Class::GetProperties(bool includeParent) const {
         else break;
     } while (curClass);
 
-    return std::move(ret);
+    return ret;
 }
 
 std::vector<EventBase> Class::GetEvents(bool includeParent) const {
@@ -133,7 +133,7 @@ std::vector<EventBase> Class::GetEvents(bool includeParent) const {
         else break;
     } while (curClass);
 
-    return std::move(ret);
+    return ret;
 }
 
 MethodBase Class::GetMethod(const std::string_view &name, int parameters) const {
@@ -170,7 +170,7 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     return {};
 }
 
-MethodBase Class::GetMethod(const std::string_view &name, const std::initializer_list<BNM::CompileTimeClass> &parameterTypes) const {
+MethodBase Class::GetMethod(const std::string_view &name, const std::initializer_list<CompileTimeClass> &parameterTypes) const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
@@ -205,6 +205,25 @@ PropertyBase Class::GetProperty(const std::string_view &name) const {
     do {
         auto end = curClass->properties + curClass->property_count;
         for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty) if (name == currentProperty->name) return currentProperty;
+        curClass = curClass->parent;
+    } while (curClass);
+
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetProperty_NotFound, str().c_str(), name.data());
+    return {};
+}
+
+PropertyBase Class::GetProperty(const std::string_view& name, const CompileTimeClass& type) const {
+    BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
+    if (!_data) return {};
+    TryInit();
+    auto curClass = _data;
+
+    auto typeClass = type.ToIl2CppClass();
+
+    do {
+        auto end = curClass->properties + curClass->property_count;
+        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty)
+            if (name == currentProperty->name && PropertyBase{currentProperty}.GetType() == typeClass) return currentProperty;
         curClass = curClass->parent;
     } while (curClass);
 
@@ -249,7 +268,7 @@ FieldBase Class::GetField(const std::string_view &name) const {
     return {};
 }
 
-BNM::EventBase Class::GetEvent(const std::string_view &name) const {
+EventBase Class::GetEvent(const std::string_view &name) const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
@@ -321,15 +340,15 @@ MonoType *Class::GetMonoType() const {
     return (MonoType *) Internal::il2cppMethods.il2cpp_type_get_object(GetIl2CppType());
 }
 
-BNM::CompileTimeClass Class::GetCompileTimeClass() const {
+CompileTimeClass Class::GetCompileTimeClass() const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     TryInit();
-    BNM::CompileTimeClass result{};
+    CompileTimeClass result{};
     result._loadedClass = *this;
     return result;
 }
 
-BNM::Image Class::GetImage() const {
+Image Class::GetImage() const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
@@ -338,7 +357,7 @@ BNM::Image Class::GetImage() const {
 
 Class::operator BNM::CompileTimeClass() const { return GetCompileTimeClass(); }
 
-BNM::IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
+IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
@@ -348,7 +367,7 @@ BNM::IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
 
     auto obj = Internal::il2cppMethods.il2cpp_object_new(_data);
     if (obj) memset((char*)obj + sizeof(IL2CPP::Il2CppObject), 0, _data->instance_size - sizeof(IL2CPP::Il2CppObject));
-    return (BNM::IL2CPP::Il2CppObject *) obj;
+    return obj;
 }
 
 // Try initializing the class if it is alive
@@ -487,7 +506,7 @@ Class CompileTimeClass::ToClass() {
         auto info = current->value;
 
         auto index = (uint8_t) info->_baseType;
-        if (index >= (uint8_t) CompileTimeClass::_BaseType::MaxCount) {
+        if (index >= (uint8_t) _BaseType::MaxCount) {
             BNM_LOG_WARN(DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (size_t) index);
             continue;
         }
@@ -512,7 +531,7 @@ CompileTimeClass::operator IL2CPP::Il2CppClass*() const { return ToIl2CppClass()
 void CompileTimeClass::Free() {
     if (_stack.IsEmpty()) return;
 
-    _stack.Clear([](CompileTimeClass::_BaseInfo *info) {
+    _stack.Clear([](_BaseInfo *info) {
         BNM_free((void *) info);
     });
 }

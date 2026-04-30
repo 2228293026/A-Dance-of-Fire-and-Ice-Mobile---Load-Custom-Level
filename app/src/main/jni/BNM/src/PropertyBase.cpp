@@ -5,11 +5,14 @@ using namespace BNM;
 
 PropertyBase::PropertyBase(const IL2CPP::PropertyInfo *info) {
     if (!info) return;
-    _hasGetter = _hasSetter = false;
+
+    _data = (IL2CPP::PropertyInfo *) info;
+
     if (info->get && info->get->methodPointer) {
         _hasGetter = true;
         _getter = info->get;
     }
+
     if (info->set && info->set->methodPointer) {
         _hasSetter = true;
         _setter = info->set;

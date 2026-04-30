@@ -1,4 +1,4 @@
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 #include <BNM/UserSettings/Il2CppMethodNames.hpp>
 
 using namespace BNM;

@@ -12,9 +12,10 @@ namespace BNM::Structures::Unity {
             struct { float x, y, z; };
             float data[3]{0.f, 0.f, 0.f};
         };
-        inline constexpr Vector3() = default;;
+        inline constexpr Vector3() = default;
         inline constexpr Vector3(float x, float y, float z) : x(x), y(y), z(z) {};
 
+        operator Vector4() const;
         inline operator Vector2&() { return *(Vector2 *) this; }
         inline operator Vector2() const { return {x, y}; }
 
@@ -74,13 +75,18 @@ namespace BNM::Structures::Unity {
         inline Vector3& operator-=(Vector3 inV) { x -= inV.x; y -= inV.y; z -= inV.z; return *this; }
         inline Vector3& operator*=(float s) { x *= s; y *= s; z *= s; return *this; }
         inline Vector3& operator/=(float s)  { x /= s; y /= s; z /= s; return *this; }
+        inline Vector3& operator*=(int s) { x *= s; y *= s; z *= s; return *this; }
+        inline Vector3& operator/=(int s)  { x /= s; y /= s; z /= s; return *this; }
         inline Vector3& operator/=(Vector3 inV) { x /= inV.x; y /= inV.y; z /= inV.z; return *this; }
         inline friend Vector3 operator+(Vector3 lhs, Vector3 rhs) { return {lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z}; }
         inline friend Vector3 operator-(Vector3 lhs, Vector3 rhs) { return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z}; }
         inline friend Vector3 operator*(Vector3 v, float s) { return {v.x * s, v.y * s, v.z * s}; }
+        inline friend Vector3 operator*(Vector3 v, int s) { return {v.x * s, v.y * s, v.z * s}; }
         inline friend Vector3 operator*(float s, Vector3 v) { return {v.x * s, v.y * s, v.z * s}; }
+        inline friend Vector3 operator*(int s, Vector3 v) { return {v.x * s, v.y * s, v.z * s}; }
         inline friend Vector3 operator*(Vector3 lhs, Vector3 rhs) { return {lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z}; }
         inline friend Vector3 operator/(Vector3 v, float s) { Vector3 temp(v); temp /= s; return temp; }
+        inline friend Vector3 operator/(Vector3 v, int s) { Vector3 temp(v); temp /= s; return temp; }
         inline friend Vector3 operator/(Vector3 lhs, Vector3 rhs) { return {lhs.x / rhs.x, lhs.y / rhs.y, lhs.z / rhs.z}; }
         inline Vector3 operator-() const { return {-x, -y, -z}; }
 

@@ -44,7 +44,7 @@ namespace BNM::Structures::Unity {
         inline static void ToAngleAxis(Quaternion rotation, float &angle, Vector3 &axis);
         inline static Vector3 ToEuler(Quaternion q, bool toDeg = true);
 
-        inline Vector3 euler() { return ToEuler(*this); }
+        inline Vector3 eulerAngles() { return ToEuler(*this); }
         inline Quaternion normalized() { return Normalize(*this); }
 
         inline std::string str() const {return std::to_string(x) + std::string(BNM_OBFUSCATE(", ")) + std::to_string(y) + std::string(BNM_OBFUSCATE(", ")) + std::to_string(z) + std::string(BNM_OBFUSCATE(", ")) + std::to_string(w); }

@@ -2,7 +2,7 @@
 
 #if defined(BNM_CLASSES_MANAGEMENT) && defined(BNM_COROUTINE)
 
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 namespace Classes {
     static BNM::Class AsyncOperation{}, WaitForEndOfFrame{}, WaitForFixedUpdate{}, WaitForSeconds{}, WaitForSecondsRealtime{};

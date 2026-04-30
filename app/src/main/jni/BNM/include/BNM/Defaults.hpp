@@ -32,10 +32,6 @@ namespace BNM {
         struct Object;
         struct MonoBehaviour;
     }
-    namespace ADOFAI {
-        struct scrPlanet;
-        struct scrFloor;
-    }
     struct CompileTimeClass;
     struct Class;
 }
@@ -64,7 +60,7 @@ namespace BNM::Defaults {
     /// @cond
     namespace Internal {
         typedef IL2CPP::Il2CppClass *ClassType;
-        extern ClassType Void, Boolean, Byte, SByte, Int16, UInt16, Int32, UInt32, IntPtr, UIntPtr, Int64, UInt64, Single, Double, Decimal, String, Object, scrPlanet, scrFloor;
+        extern ClassType Void, Boolean, Byte, SByte, Int16, UInt16, Int32, UInt32, IntPtr, UIntPtr, Int64, UInt64, Single, Double, Decimal, String, Object;
         extern ClassType Vector2, Vector3, Vector4, Color, Color32, Ray, Quaternion, Matrix3x3, Matrix4x4, RaycastHit, RaycastHit2D;
         extern ClassType UnityObject, MonoBehaviour;
     }
@@ -198,10 +194,6 @@ namespace BNM::Defaults {
             return {&Internal::MonoBehaviour};
         else if constexpr (std::is_pointer_v<T>)
             return {&Internal::Object};
-        else if constexpr (std::is_same_v<T, BNM::ADOFAI::scrPlanet *>)
-            return {&Internal::scrPlanet};
-        else if constexpr (std::is_same_v<T, BNM::ADOFAI::scrFloor *>)
-            return {&Internal::scrFloor};
         return {};
     }
 

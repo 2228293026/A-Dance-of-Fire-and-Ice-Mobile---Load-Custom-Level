@@ -29,5 +29,5 @@
 #define BNM_IL2CPP_API_il2cpp_thread_current "il2cpp_thread_current"
 #define BNM_IL2CPP_API_il2cpp_thread_attach "il2cpp_thread_attach"
 #define BNM_IL2CPP_API_il2cpp_thread_detach "il2cpp_thread_detach"
-#define BNM_IL2CPP_API_il2cpp_alloc "il2cpp_alloc"
-#define BNM_IL2CPP_API_il2cpp_free "il2cpp_free"
+#define BNM_IL2CPP_API_il2cpp_gc_alloc_fixed "il2cpp_gc_alloc_fixed"
+#define BNM_IL2CPP_API_il2cpp_gc_free_fixed "il2cpp_gc_free_fixed"

@@ -47,6 +47,7 @@
 #define DBG_BNM_MSG_Field_GetPointer_Dead "Dead"
 #define DBG_BNM_MSG_Field_GetPointer_Error "Null pointer in the field %s!"
 #define DBG_BNM_MSG_Field_GetSet_Error "An attempt to use dead field!"
+#define DBG_BNM_MSG_Field_SetInstance_Error "An attempt to set instance to dead field!"
 #define DBG_BNM_MSG_Field_Set_const_Error "Setting a const fields is impossible, field: %s."
 
 

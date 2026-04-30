@@ -1,8 +1,8 @@
 #include <BNM/Defaults.hpp>
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 namespace BNM::Defaults::Internal {
-    ClassType Void{}, Boolean{}, Byte{}, SByte{}, Int16{}, UInt16{}, Int32{}, UInt32{}, IntPtr{}, UIntPtr{}, Int64{}, UInt64{}, Single{}, Double{}, Decimal{}, String{}, Object{}, scrPlanet{}, scrFloor{};
+    ClassType Void{}, Boolean{}, Byte{}, SByte{}, Int16{}, UInt16{}, Int32{}, UInt32{}, IntPtr{}, UIntPtr{}, Int64{}, UInt64{}, Single{}, Double{}, Decimal{}, String{}, Object{};
     ClassType Vector2{}, Vector3{}, Vector4{}, Color{}, Color32{}, Ray{}, Quaternion{}, Matrix3x3{}, Matrix4x4{}, RaycastHit{}, RaycastHit2D{};
     ClassType UnityObject{}, MonoBehaviour{};
 }
@@ -52,10 +52,6 @@ void BNM::Internal::LoadDefaults() {
     // Unity
     UnityObject = TryGetClassInImage(image, UnityEngineStr, ObjectStr);
     MonoBehaviour = TryGetClassInImage(image, UnityEngineStr, BNM_OBFUSCATE_TMP("MonoBehaviour"));
-    // ADOFAI
-    auto image2 = TryGetImage(BNM_OBFUSCATE_TMP("Assembly-CSharp.dll"));
-    scrPlanet = TryGetClassInImage(image2, "", BNM_OBFUSCATE_TMP("scrPlanet"));
-    scrFloor = TryGetClassInImage(image2, "", BNM_OBFUSCATE_TMP("scrFloor"));
 }
 
 BNM::Defaults::DefaultTypeRef::operator BNM::CompileTimeClass() const { return {_reference}; }

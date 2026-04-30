@@ -3,7 +3,7 @@
 #include <BNM/Loading.hpp>
 #include <BNM/Field.hpp>
 
-#include "Internals.hpp"
+#include <BNM/src/Internals.hpp>
 
 using namespace BNM;
 
@@ -187,14 +187,14 @@ namespace AssemblerUtils {
     static std::string ReadMemory(BNM_PTR address) {
         char temp[len]; memset(temp, 0, len);
         std::string ret{};
-        if (memcpy(temp, (void *)address, len) == nullptr) return std::move(ret);
+        if (memcpy(temp, (void *)address, len) == nullptr) return ret;
         ret.resize(len * 2, 0);
         auto buf = (char *)ret.data();
         for (size_t i = 0; i < len; ++i) {
             *buf++ = hexChars[temp[i] >> 4];
             *buf++ = hexChars[temp[i] & 0x0F];
         }
-        return std::move(ret);
+        return ret;
     }
 
     // Decode b or bl and get the address it goes to
@@ -303,7 +303,7 @@ void Internal::SetupBNM() {
     BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Class_Init, OffsetInLib((void *)il2cppMethods.Class$$Init));
 
 
-#define INIT_IL2CPP_API(name) il2cppMethods.name = (decltype(il2cppMethods.name)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_##name))
+#define INIT_IL2CPP_API(name) il2cppMethods.name = (decltype(il2cppMethods.name)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_##name)); BNM_LOG_DEBUG("[INIT_IL2CPP_API]: " #name " (" BNM_IL2CPP_API_##name ") in lib %p", OffsetInLib((void *)il2cppMethods.name))
 
     INIT_IL2CPP_API(il2cpp_image_get_class);
     INIT_IL2CPP_API(il2cpp_get_corlib);
@@ -325,8 +325,8 @@ void Internal::SetupBNM() {
     INIT_IL2CPP_API(il2cpp_thread_current);
     INIT_IL2CPP_API(il2cpp_thread_attach);
     INIT_IL2CPP_API(il2cpp_thread_detach);
-    INIT_IL2CPP_API(il2cpp_alloc);
-    INIT_IL2CPP_API(il2cpp_free);
+    INIT_IL2CPP_API(il2cpp_gc_alloc_fixed);
+    INIT_IL2CPP_API(il2cpp_gc_free_fixed);
 
 #undef INIT_IL2CPP_API
 

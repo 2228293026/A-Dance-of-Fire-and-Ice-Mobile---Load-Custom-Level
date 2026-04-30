@@ -1,4 +1,3 @@
-
 #include "BNM/include/BNM/BasicMonoStructures.hpp"
 #include "BNM/include/BNM/Il2CppHeaders.hpp"
 #include "BNM/include/BNM/Class.hpp"
@@ -27,7 +26,6 @@
 #include "BNM/UserSettings/Il2CppMethodNames.hpp"
 
 void start();
-void InitIL2CPPExports();
 template <typename T>
 T callMethod(std::string nameSpace,std::string className,std::string methodName,BNM::IL2CPP::Il2CppObject *instance = nullptr);
 template <typename T>
