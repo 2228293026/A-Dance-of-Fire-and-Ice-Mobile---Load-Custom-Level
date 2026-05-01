@@ -644,6 +644,10 @@ void start() {
     auto isEditor = Class("","ADOBase").GetMethod("get_isUnityEditor");
     BasicHook(isEditor, IsUnityEditorMet, (void*)nullptr);
 
+    auto mobile = Class("","ADOBase").GetMethod("get_isMobile");
+    //BasicHook(mobile, IsMobile, old_isMobile);
+    //未知原因hook他就崩游戏，先注释了
+
     auto ringUpdate = Class("","scrRing").GetMethod("Update");
     BasicHook(ringUpdate, scrRing_Update, old_scrRing_Update);
 
@@ -670,10 +674,6 @@ void start() {
 
     auto uiUpdate = Class("","scrUIController").GetMethod("Update");
     BasicHook(uiUpdate, scrUIController_Update, old_scrUIController_Update);
-
-    auto mobile = Class("","ADObase").GetMethod("get_isMobile");
-    //BasicHook(mobile, IsMobile, old_isMobile);
-    //未知原因hook他就崩游戏，先注释了
 
     auto pauselevelEditor = Class("","PauseMenu").GetMethod("RefreshLayout");
     BasicHook(pauselevelEditor, RefreshLayout_Hook, old_RefreshLayout);
