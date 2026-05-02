@@ -1,5 +1,5 @@
-D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/obj/local/arm64-v8a/objs/October/Main.o: \
-  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Main.cpp \
+D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/obj/local/arm64-v8a/objs/October/Hooks.o: \
+  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Hooks.cpp \
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/universe.h \
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/BasicMonoStructures.hpp \
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/UserSettings/GlobalSettings.hpp \
@@ -40,14 +40,13 @@ D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/obj/local/arm64-v8a/objs/Octo
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/Property.hpp \
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/PropertyBase.hpp \
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/UserSettings/Il2CppMethodNames.hpp \
-  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Logger.h \
-  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Config.h \
-  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Cache.h \
-  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Helpers.h \
-  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/FilePicker.h \
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Hooks.h \
   D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Enum/HitMargin.h \
-  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Enum/DifficultyUIMode.h
+  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Enum/DifficultyUIMode.h \
+  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Cache.h \
+  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Helpers.h \
+  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Config.h \
+  D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Logger.h
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/universe.h:
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/BasicMonoStructures.hpp:
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/UserSettings/GlobalSettings.hpp:
@@ -88,11 +87,10 @@ D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/Operators
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/Property.hpp:
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/PropertyBase.hpp:
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/BNM/include/BNM/UserSettings/Il2CppMethodNames.hpp:
-D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Logger.h:
-D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Config.h:
-D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Cache.h:
-D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Helpers.h:
-D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/FilePicker.h:
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Hooks.h:
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Enum/HitMargin.h:
 D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Enum/DifficultyUIMode.h:
+D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Cache.h:
+D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Helpers.h:
+D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Config.h:
+D:/Projects/Android/ADOFAI-Mobile-Mod/app/src/main/jni/Logger.h:

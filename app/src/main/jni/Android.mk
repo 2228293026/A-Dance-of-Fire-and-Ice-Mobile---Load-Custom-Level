@@ -39,7 +39,13 @@ LOCAL_SRC_FILES := BNM/src/Class.cpp \
     BNM/src/PropertyBase.cpp \
     BNM/src/UnityStructures.cpp \
     BNM/src/Utils.cpp \
-    Main.cpp
+    Main.cpp \
+    Logger.cpp \
+    Config.cpp \
+    Cache.cpp \
+    Helpers.cpp \
+    FilePicker.cpp \
+    Hooks.cpp
 
 # 指定C++标准
 LOCAL_CPPFLAGS := -std=c++20 -fexceptions
