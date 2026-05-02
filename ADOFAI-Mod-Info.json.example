@@ -14,6 +14,6 @@
 
   // 路径与难度配置
   "enableCustomBundlesPath": true,         // 启用自定义 DLC 包路径
-  "bundlesLoadPath": "/sdcard/DLC/Bundles", // DLC 包搜索目录（支持自定义关卡文件）
+  "bundlesLoadPath": "/sdcard/DLC/Bundles", // DLC 包搜索目录
   "enableDifficultyUIMode": true          // 启用难度显示模式覆盖
 }
