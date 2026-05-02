@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working on this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with this repository.
 
 ## Project Overview
 
@@ -50,232 +50,263 @@ This is an Android NDK mod for *A Dance of Fire and Ice Mobile* that enables loa
 │   └── UnityEngine.CoreModule_Dump.cs
 ├── README.md                   # Project overview (bilingual)
 ├── INSTRUCTIONS.md             # Detailed build & injection guide
+├── CONFIG-GUIDE.md            # Configuration file format and options
 └── CLAUDE.md                   # This file
 ```
 
-## Build Commands
+## Common Development Tasks
 
-### Build Native Library Only (ndk-build)
+### Build Native Library (NDK)
 ```bash
 cd app/src/main/jni
-ndk-build
-```
-Output: `app/src/main/obj/local/arm64-v8a/libOctober.so`
-
-### Clean Native Build
-```bash
-cd app/src/main/jni
-ndk-build clean
-# or remove build outputs:
-rm -rf ../../obj
+ndk-build                    # Release build (default)
+ndk-build -j$(nproc)        # Parallel build
+ndk-build clean             # Clean build artifacts
+ndk-build V=1              # Verbose output for debugging
 ```
 
-### Rebuild from Scratch
-```bash
-cd app/src/main/jni
-ndk-build clean && ndk-build -j$(nproc)
-```
+Output library: `app/src/main/libs/arm64-v8a/libOctober.so`
 
 ### Build with Debug Info
 Edit `app/src/main/jni/Application.mk`:
 ```makefile
 APP_OPTIM = debug
 ```
-Then run `ndk-build`.
+Then rebuild: `ndk-build`
 
-### Verbose Build (See all commands)
+### Build from Scratch
 ```bash
-ndk-build V=1
+cd app/src/main/jni
+rm -rf ../../obj ../../libs
+ndk-build -j$(nproc)
 ```
+
+### Rebuild After Source Changes
+All C++ changes require `ndk-build` before testing.
+
+### View Build Logs
+If build fails, check:
+- `Android.mk` for missing source files
+- `Application.mk` for ABI/platform mismatches
+- NDK path and toolchain availability
+
+### Debug with Logcat
+Monitor mod logs during runtime:
+```bash
+adb logcat -s IL2CPP_EXPORTS
+```
+
+### Test Changes (Manual)
+1. Build `.so`: `ndk-build`
+2. Inject into game APK (see INSTRUCTIONS.md)
+3. Install APK: `adb install -r your_modified_apk.apk`
+4. Launch game, enter editor
+5. Trigger file picker
+6. Select `.adofai` file
+7. Verify level loads without crash
+8. Check Logcat for debug messages
+
+### IL2CPP Dump Reference
+IL2CPP dumps in `Dump/` directory show class structures, method signatures, and field offsets. Use to find hook targets.
+
+**Important:** Do NOT commit modified dumps unless they match the current game version exactly.
 
 ## Architecture
 
-### Single Module
-- **libOctober.so**: Main native module built from `Main.cpp` and BNM sources.
-  - Exported JNI function: `Java_com_mod_filepicker_FilePicker_nativeOnFileSelected`
-  - Initialized via `JNI_OnLoad` → `BNM::Loading::TryLoadByJNI` → `start()`
-  - All hooks installed in `start()`
+### Module Structure
+**libOctober.so**: Single native module containing:
+- All BNM source files (`BNM/src/*.cpp`)
+- Mod source files (`Main.cpp`, `Cache.cpp`, `Hooks.cpp`, etc.)
+- Static library: `libdobby.a` (hooking)
 
-### BNM Library
-BNM provides type-safe C++ wrappers around IL2CPP APIs:
-- `Class`, `Method`, `Field`, `Property` - Reflection-like API
-- `Image` - Assembly/module management
-- `BasicHook` - Simple function hook using Dobby
-- `CreateMonoString()` - Create C# strings
-- `Defaults::Get<T>()` - Get cached class for primitive/types
+**JNI Entry Point**:
+- `JNI_OnLoad` → `BNM::Loading::TryLoadByJNI()` → `start()` callback
+- Exported: `Java_com_mod_filepicker_FilePicker_nativeOnFileSelected`
+- All hooks installed in `start()`
 
-Headers: `BNM/include/BNM/`
-Implementation: `BNM/src/*.cpp` (compiled into libOctober.so)
-
-### Hook Pattern
+### Hook Implementation Pattern
 ```cpp
-// 1. Declare function pointer for original
+// 1. Declare original function pointer
 ReturnType (*old_MethodName)(ParamTypes);
 
-// 2. Replacement function
+// 2. Hook function (in Hooks.cpp)
 ReturnType Hooked_MethodName(ParamTypes) {
-    if (old_MethodName) old_MethodName(args);  // optional: call original
+    if (old_MethodName) old_MethodName(args);  // call original if needed
     // Custom logic here
+    LOGD("Hook called");
 }
 
-// 3. In start(): install hook
-auto method = Class("Namespace", "ClassName").GetMethod("MethodName");
-if (method.IsValid()) {
-    BasicHook(method, Hooked_MethodName, old_MethodName);
+// 3. Cache Method object in InitModCache()
+g_methodCache = Class("Namespace", "ClassName").GetMethod("MethodName");
+
+// 4. Install hook in start()
+if (g_methodCache.IsValid()) {
+    BasicHook(g_methodCache, Hooked_MethodName, old_MethodName);
 }
 ```
 
-### Current Mod Features (Main.cpp)
-- **File picker hook**: `StandaloneFileBrowser.OpenFilePanel` → returns selected `.adofai` path as `string[]`
-- **Scene detection**: `ADOBase.get_isMobile` → force-return `true` (treat as mobile)
-- **UI patches**: Hide pause button, scale circles to zero
-- **Level loading bypass**: `GCNS.get_BundlesLoadPath` → return `/sdcard/DLC/Bundles`
-- **Feature flags**: Disable `useNoFail`, unlock all levels, skip DLC checks
-- **Editor detection**: Always return `false` for `LevelEventInfo.get_isActive` and `get_taroDLCCheck`
+### Current Hook Features (Main.cpp)
+
+**File Picker Integration:**
+- Hooks `StandaloneFileBrowser.OpenFilePanel`
+- Returns selected `.adofai` path as C# `string[]`
+- Uses Android SAF (Storage Access Framework)
+
+**Gameplay Modifications:**
+- Force `ADOBase.get_isMobile` → `true` (mobile mode)
+- Hide pause button (scrUIController.Update)
+- Hide all hit text except non-Perfect (ShowHitText)
+- Scale circles to zero (scrRing.Update)
+
+**Level Loading:**
+- `GCNS.get_BundlesLoadPath` → `/sdcard/DLC/Bundles`
+- Bypass DLC restrictions
+
+**Feature Flags:**
+- `RDC.forceUnlockAllLevels` → `true`
+- `LevelEventInfo.taroDLCCheck` → `true`
+- `LevelEventInfo.isActive` → `false` (editor detection)
+- `scrPlanet.GetMultipressPenalty` → `false`
 
 ### Global Cache System
-`InitModCache()` initializes all frequently-used `g_*` `Method`/`Field`/`Property` objects once at startup to avoid repeated lookups.
+All reflection lookups cached in `InitModCache()`:
+- `g_*Method`: `BNM::Method<>` objects
+- `g_*Field`: `BNM::Field<>` objects
+- `g_*Property`: `BNM::Property<>` objects
+- `g_*Class`: `BNM::Class` objects
 
-## Development Workflow
+This avoids repeated expensive lookups at runtime.
 
-### Adding a New Hook
-1. Add forward declaration at top (function pointer + hook function)
-2. Write hook function with correct signature (match original from IL2CPP dump)
-3. In `InitModCache()` or `start()`, obtain `Method` via `Class(...).GetMethod(...)`
-4. Call `BasicHook(method, YourHook, old_YourMethod)` in `start()`
-5. Add logging (LOGD/LOGE) for debugging
+### Namespace Usage
 
-### Rebuilding After Changes
-```bash
-cd app/src/main/jni && ndk-build -j$(nproc)
-```
-The `.so` will be at: `app/src/main/obj/local/arm64-v8a/libOctober.so`
+**Code convention**: Use `using namespace` to reduce code size and improve readability:
 
-### Debugging Hooks
-- Check Logcat: `adb logcat -s IL2CPP_EXPORTS`
-- Add `LOGD("Hook called")` at start of each hook
-- Verify `Method.IsValid()` before hooking
-- Check that `old_Method` is non-null before calling
-
-### Common Pitfalls
-- **Class names are case-sensitive**: `"ADOBase"` not `"ADObase"`
-- **Method signatures must match exactly**: number and types of parameters
-- **JNI thread attachment**: Call `BNM::AttachIl2CPP()` if calling BNM from non-JNI thread
-- **String handling**: Use `BNM::CreateMonoString()` for creating C# strings
-- **Arrays**: Use `g_stringClass.NewArray<String*>(size)` and set via `array->m_Items[i]`
-
-### Working with IL2CPP Dumps
-The `Dump/*_Dump.cs` files are reference code generated by Il2CppDumper. They show:
-- Class hierarchies
-- Method signatures with virtual addresses
-- Field offsets
-
-Use them to find method names and signatures. Do NOT commit modified dumps unless they match the current game version.
-
-## BNM Quick Reference
-
-### Type Aliases (using namespace BNM::Structures::Mono)
-- `String*` → C# `string`
-- `Array<T>*` → C# `T[]`
-- `List<T>*` → C# `List<T>`
-
-### Commonly Used BNM Types
 ```cpp
-BNM::Class                    // IL2CPP class wrapper
-BNM::Method<Ret(Params...)>   // Method wrapper with return/param types
-BNM::Field<T>                 // Field wrapper
-BNM::Property<T>              // Property wrapper
-BNM::Image                    // Assembly/image wrapper
-BNM::CreateMonoString(str)    // Create C# string
-BNM::Defaults::Get<T>()       // Get cached class for primitive/types
+using namespace BNM;
+using namespace BNM::Structures::Mono;
+using namespace BNM::Structures::Unity;
+
+// Instead of:
+// BNM::Class myClass = BNM::Class("Namespace", "ClassName");
+// Use:
+// Class myClass = Class("Namespace", "ClassName");
 ```
 
-### Example: Field Access
-```cpp
-static Field<bool> g_someFlag;
-g_someFlag = Class("", "SomeClass").GetField("someFlag");
-bool value = g_someFlag[instance].Get();
-g_someFlag[instance].Set(true);
-```
-
-### Example: Method Call
-```cpp
-static Method<int, String*> g_getScore;
-g_getScore = Class("", "GameManager").GetMethod("get_score", {"levelName"});
-int score = g_getScore[instance].Call("Level01");
-```
-
-## Testing
-
-Currently no automated tests. Manual testing:
-1. Build `.so`: `cd app/src/main/jni && ndk-build`
-2. Package into APK (follow INSTRUCTIONS.md)
-3. Install to device: `adb install -r your_modified_apk.apk`
-4. Launch game, enter editor
-5. Trigger file picker
-6. Select a `.adofai` file
-7. Verify level loads without crash
-8. Check Logcat: `adb logcat -s IL2CPP_EXPORTS`
-
-## Important Notes
-
-- **Architecture**: Only arm64-v8a (`APP_ABI = arm64-v8a` in Application.mk)
-- **Minimum API**: 23 (APP_PLATFORM). Manifest may claim lower, but NDK enforces 23.
-- **Build mode**: Release (`-O2`) by default. For debugging, change `APP_OPTIM = debug`.
-- **Dependencies**: `libdobby.a` (static, in `libraries/arm64-v8a/`) and Android `-llog`.
-- **Unity version**: BNM headers support Unity 2017.1–2021.2. Match target game.
-- **Thread safety**: `LogToFile` uses mutex; JNI attach/detach is per-thread.
-
-## What to Avoid
-
-- **Do NOT commit** generated IL2CPP dumps unless verified for current game version.
-- **Do NOT commit** build outputs: `app/src/main/obj/`, `.so` files.
-- **Do NOT modify** `app/src/main/libs/` unless redistributing prebuilt libraries.
-- **Avoid raw IL2CPP API** (`il2cpp_*`); always use BNM wrappers when possible.
+All source files follow this pattern in headers and implementation files.
 
 ## Troubleshooting
 
-### Build fails: "cannot find -ldobby"
-Ensure `app/src/main/jni/libraries/arm64-v8a/libdobby.a` exists.
+### Build Errors
 
-### "Class not found" at runtime
-Method might be in wrong namespace. Some classes use empty namespace `""`. Check IL2CPP dump.
+**"Cannot find -ldobby"**
+- Verify `app/src/main/jni/libraries/arm64-v8a/libdobby.a` exists
+- Check `Android.mk` `LOCAL_STATIC_LIBRARIES` configuration
 
-### Hook not firing
+**"Class not found" at runtime**
+- Check IL2CPP dump for exact namespace (empty string `""` for some classes)
+- Verify class name case-sensitivity
+- Ensure IL2CPP is fully loaded before hooking (hooks installed in `start()`)
+
+**Hook not firing**
 - Verify `method.IsValid()` before `BasicHook`
-- Ensure `BasicHook` called after IL2CPP loads (inside `start()` callback)
-- Original function pointer remains null if method is not virtual or already hooked
+- `old_Method` pointer will be null if method not virtual or already hooked
+- Check Logcat for `LOGD` messages in `start()`
 
-### Crash in hook when calling `old_Method`
-`old_Method` is only set if `BasicHook` succeeds. Guard:
+**Crash when calling `old_Method`**
+Guard calls:
 ```cpp
 if (old_Method) old_Method();
 ```
 
-### No logs in Logcat
-Tag is `IL2CPP_EXPORTS`. Use: `adb logcat -s IL2CPP_EXPORTS:I`
+### Runtime Issues
+
+**No logs in Logcat**
+Tag is `IL2CPP_EXPORTS`. Use:
+```bash
+adb logcat -s IL2CPP_EXPORTS:I
+```
+
+**File picker not appearing**
+- Verify `FilePicker.java` compiled into DEX and injected
+- Check `UnityPlayerActivity.onActivityResult` forwarding
+- Verify JNI function `nativeOnFileSelected` is called
+
+**Level fails to load**
+- Check file path is correct in logs
+- Verify `/sdcard/DLC/Bundles` exists and contains `level.adofai`
+- Check game's `IL2CPP` dump for expected method signatures
 
 ## Code Style
 
-- C++20 allowed (constexpr, auto, etc.)
-- Use `auto` for type clarity when type is obvious
-- Prefix globals with `g_` (e.g., `g_logThread`, `g_stringClass`)
-- Hook functions: `ReturnType Hooked_OriginalName(...)`
-- Original function pointers: `ReturnType (*old_OriginalName)(Params);`
-- Logging: `LOGD` (info), `LOGW` (warn), `LOGE` (error)
+- **Namespaces**: All mod files use `using namespace BNM;`, `using namespace BNM::Structures::Mono;`, `using namespace BNM::Structures::Unity;` to minimize repetitive prefixes
+- **C++20**: constexpr, auto, structured bindings allowed
+- **Globals**: Prefix with `g_` (e.g., `g_logThread`, `g_stringClass`)
+- **Hook functions**: `ReturnType Hooked_OriginalName(...)`
+- **Original pointers**: `ReturnType (*old_OriginalName)(Params);`
+- **Logging**: `LOGD` (debug), `LOGW` (warn), `LOGE` (error)
 
-## Maintenance Tips
+## Adding New Hooks
 
-- Keep `Main.cpp` organized with section comments
-- Use descriptive hook names consistent with original method
-- Prefer BNM::CreateMonoString() over raw il2cpp_string_new
-- Prefer Class::NewArray<T>() over raw il2cpp_array_new
-- Cache reflection lookups in `InitModCache()` - avoid repeated GetMethod calls
-- For string comparisons, use `.str() == "..."` or `std::string::compare`
+1. **Declare** in `Hooks.h`:
+```cpp
+extern void (*old_TargetMethod)(Params);
+void Hooked_TargetMethod(Params);
+```
+
+2. **Implement** in `Hooks.cpp`:
+```cpp
+void (*old_TargetMethod)(Params) = nullptr;
+
+void Hooked_TargetMethod(Params) {
+    if (old_TargetMethod) old_TargetMethod();
+    // Your logic
+}
+```
+
+3. **Cache** Method object in `Cache.cpp` `InitModCache()`:
+```cpp
+g_targetMethod = Class("Namespace", "ClassName").GetMethod("MethodName", {params});
+```
+
+4. **Install** hook in `Main.cpp` `start()`:
+```cpp
+if (g_targetMethod.IsValid()) {
+    BasicHook(g_targetMethod, Hooked_TargetMethod, old_TargetMethod);
+}
+```
+
+5. **Add logging** for debugging.
 
 ## References
 
-- **BNM Library**: https://github.com/ByNameModding/BNM-Android (official BNM repository)
-- Unity IL2CPP internals: `BNM/include/BNM/Il2CppHeaders/`
-- Dobby: https://github.com/jmpews/Dobby (inline hooking used by BNM)
-- Project INSTRUCTIONS.md for detailed injection guide
+- **BNM Library**: https://github.com/ByNameModding/BNM-Android
+- **Dobby Hooking**: https://github.com/jmpews/Dobby
+- **IL2CPP Dump Tools**: Il2CppDumper, Il2CppInspector
+- Project `INSTRUCTIONS.md`: Full injection and repackaging guide
+- Project `CONFIG-GUIDE.md`: Configuration file format and options
+
+## Environment Setup
+
+- Android NDK r29+ (64-bit Windows/Linux/macOS)
+- Android SDK (for building Java code and APK tools)
+- Java Development Kit (JDK 11+)
+- Build tools: `apktool`, `d8`/`dx`, `zipalign`, `apksigner`/`jarsigner`
+
+See `INSTRUCTIONS.md` for detailed setup steps.
+
+## Important Notes
+
+- **Architecture**: Only arm64-v8a (`APP_ABI = arm64-v8a` in Application.mk)
+- **Minimum API**: 23 (APP_PLATFORM)
+- **Build mode**: Release (`-O2`, stripped) by default. Debug builds require `APP_OPTIM = debug`.
+- **Dependencies**: `libdobby.a` (prebuilt static library), `-llog` for Android logging
+- **Unity version**: BNM headers support Unity 2017.1–2021.2. Verify target game version.
+- **Thread safety**: `LogToFile` uses mutex; JNI attach/detach is per-thread (use `BNM::AttachIl2CPP()` in non-JNI threads)
+
+## What to Avoid
+
+- **Do NOT commit** generated IL2CPP dumps unless verified for the current game version.
+- **Do NOT commit** build outputs: `app/src/main/obj/`, `.so` files.
+- **Do NOT modify** `app/src/main/libs/` unless redistributing prebuilt libraries.
+- **Avoid raw IL2CPP API** (`il2cpp_*`); always use BNM wrappers.
+- **Do NOT skip using namespace declarations** - they reduce binary size and improve code clarity.

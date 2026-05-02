@@ -56,7 +56,7 @@
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | `enableCustomBundlesPath` | `true` | 启用自定义 DLC 包路径 |
-| `bundlesLoadPath` | `"/sdcard/DLC/Bundles"` | DLC 包搜索目录（支持自定义关卡文件） |
+| `bundlesLoadPath` | `"/sdcard/DLC/Bundles"` | DLC 包搜索目录 |
 | `enableDifficultyUIMode` | `true` | 启用难度显示模式覆盖 |
 
 ## 使用示例
@@ -126,19 +126,8 @@ cp ADOFAI-Mod-Info.json.example /sdcard/Android/data/com.fizzd.connectedworlds29
 adb logcat -s IL2CPP_EXPORTS
 ```
 
-配置加载成功会看到：
-```
-D/IL2CPP_EXPORTS: Mod configuration loaded from /sdcard/ADOFAI-Mod-Info.json
-```
-
-未找到配置时会看到：
-```
-W/IL2CPP_EXPORTS: Config file not found: /sdcard/ADOFAI-Mod-Info.json, using defaults
-```
-
 ## 默认行为
 
 不提供配置文件时，模组行为与之前的版本完全一致：
 - 所有功能开关默认开启
 - DLC 路径为 `/sdcard/DLC/Bundles`
-- 难度显示模式为 `ShowAll`
