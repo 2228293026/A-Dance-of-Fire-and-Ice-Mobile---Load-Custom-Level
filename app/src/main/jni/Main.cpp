@@ -1,7 +1,9 @@
 #include <jni.h>
+#include <android/log.h>
 #include "universe.h"
 #include <sys/mman.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include "Enum/HitboxType.h"
 #include "Enum/HitMargin.h"
 #include "Enum/LevelEventType.h"
@@ -17,6 +19,7 @@
 #include <thread>
 #include <cstdio>
 #include <dlfcn.h>
+#include <map>
 
 using namespace std;
 using namespace BNM;
@@ -36,6 +39,258 @@ Image unityCore;
 Image assembly_csharp;
 Image unityUI;
 */
+
+// 替换原先的 ofstream + mutex
+static std::queue<std::string> g_logQueue;
+static std::mutex g_queueMutex;
+static std::condition_variable g_queueCV;
+static std::atomic<bool> g_logThreadRunning{false};
+static std::thread g_logThread;
+static std::string g_logPath = "/sdcard/adofai_mod.log";
+
+// 后台线程函数
+void LogWriterThread() {
+    std::ofstream logFile(g_logPath, std::ios::trunc); // 每次启动清空
+    if (!logFile.is_open()) return;
+
+    while (g_logThreadRunning.load()) {
+        std::unique_lock<std::mutex> lock(g_queueMutex);
+        g_queueCV.wait(lock, []{ return !g_logQueue.empty() || !g_logThreadRunning; });
+
+        // 取出所有待写消息
+        std::queue<std::string> localQueue;
+        std::swap(localQueue, g_logQueue);
+        lock.unlock();
+
+        // 写入文件
+        while (!localQueue.empty()) {
+            logFile << localQueue.front();
+            localQueue.pop();
+        }
+        logFile.flush(); // 一次 flush 全部
+    }
+
+    // 线程结束前再检查一次队列
+    {
+        std::lock_guard<std::mutex> lock(g_queueMutex);
+        while (!g_logQueue.empty()) {
+            logFile << g_logQueue.front();
+            g_logQueue.pop();
+        }
+    }
+    logFile.flush();
+    logFile.close();
+}
+
+// 启动日志线程
+void StartLogging() {
+    g_logThreadRunning = true;
+    g_logThread = std::thread(LogWriterThread);
+}
+
+// 停止日志线程
+void StopLogging() {
+    g_logThreadRunning = false;
+    g_queueCV.notify_all();
+    if (g_logThread.joinable()) {
+        g_logThread.join();
+    }
+}
+
+// LogToFile 现在只负责格式化并推入队列
+void LogToFile(const char* format, ...) {
+    // 获取时间戳
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  now.time_since_epoch()) % 1000;
+
+    std::ostringstream oss;
+    oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
+    oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    oss << " ";
+
+    char buffer[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    oss << buffer << '\n';
+
+    // 入队（锁粒度极小）
+    {
+        std::lock_guard<std::mutex> lock(g_queueMutex);
+        g_logQueue.push(oss.str());
+    }
+    g_queueCV.notify_one();
+}
+
+#undef LOGD
+#undef LOGE
+#undef LOGW
+#define LOGD(...) do { __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__); LogToFile(__VA_ARGS__); } while(0)
+#define LOGE(...) do { __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__); LogToFile(__VA_ARGS__); } while(0)
+#define LOGW(...) do { __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__); LogToFile(__VA_ARGS__); } while(0)
+
+// ============ 模组配置结构 ============
+struct ModConfig {
+    // 核心功能
+    bool enableUnlockAllLevels = true;          // RDC.forceUnlockAllLevels
+    bool enableTaroDlcCheck = true;            // LevelEventInfo.taroDLCCheck
+    bool enableLoadLevel = true;                // ADOBase.isUnityEditor (显示设置菜单载入关卡按钮)
+    bool enableNoMultipressPenalty = true;     // scrPlanet.GetMultipressPenalty -> false
+    bool enableAutoPlay = true;                 // OttoButtonController.Update (自动播放按钮)
+
+    // UI修改
+    bool enableHideCircles = true;              // scrRing.Update (隐藏圆圈)
+    bool enableHidePauseButton = true;          // scrUIController.Update (隐藏暂停按钮)
+    bool enableHidePerfectHitText = true;       // ShowHitText (隐藏完美判定文字)
+    bool enableCustomUIHitTest = true;          // IsScreenPointInsideUIEntities (自定义UI点击检测)
+
+    // 路径与难度
+    bool enableCustomBundlesPath = true;        // GCNS.BundlesLoadPath 覆盖
+    std::string bundlesLoadPath = "/sdcard/DLC/Bundles";
+    bool enableDifficultyUIMode = true;         // DetermineDifficultyUIMode 覆盖
+};
+
+static ModConfig g_modConfig;
+
+// 简易 JSON 解析（不依赖外部库）
+static bool parseConfig(const std::string& content) {
+    auto trim = [](const std::string& s, const char* whitespace = " \t\n\r") -> std::string {
+        size_t start = s.find_first_not_of(whitespace);
+        if (start == std::string::npos) return "";
+        size_t end = s.find_last_not_of(whitespace);
+        return s.substr(start, end - start + 1);
+    };
+
+    try {
+        // 移除换行和多余空格（保留 JSON 结构）
+        std::string json = content;
+        // 简单解析：查找 "key": value 模式
+        std::istringstream iss(json);
+        std::string line;
+        while (std::getline(iss, line)) {
+            // 跳过注释和空行
+            line = trim(line);
+            if (line.empty() || line.starts_with("//") || line.starts_with("#")) continue;
+
+            // 查找布尔值
+            size_t pos = line.find("\"");
+            if (pos == std::string::npos) continue;
+            size_t keyStart = pos + 1;
+            size_t keyEnd = line.find("\"", keyStart);
+            if (keyEnd == std::string::npos) continue;
+            std::string key = line.substr(keyStart, keyEnd - keyStart);
+
+            // 找冒号
+            size_t colonPos = line.find(":", keyEnd);
+            if (colonPos == std::string::npos) continue;
+            size_t valueStart = colonPos + 1;
+            while (valueStart < line.size() && (line[valueStart] == ' ' || line[valueStart] == '\t')) valueStart++;
+            if (valueStart >= line.size()) continue;
+
+            std::string valueStr = line.substr(valueStart);
+            // 去掉尾部分号和逗号
+            if (!valueStr.empty() && (valueStr.back() == ',' || valueStr.back() == '}')) {
+                valueStr.pop_back();
+            }
+            valueStr = trim(valueStr);
+
+            // 设置配置
+            if (key == "enableUnlockAllLevels") g_modConfig.enableUnlockAllLevels = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableTaroDlcCheck") g_modConfig.enableTaroDlcCheck = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableLoadLevel") g_modConfig.enableLoadLevel = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableNoMultipressPenalty") g_modConfig.enableNoMultipressPenalty = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableAutoPlay") g_modConfig.enableAutoPlay = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableHideCircles") g_modConfig.enableHideCircles = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableHidePauseButton") g_modConfig.enableHidePauseButton = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableHidePerfectHitText") g_modConfig.enableHidePerfectHitText = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableCustomUIHitTest") g_modConfig.enableCustomUIHitTest = (valueStr == "true" || valueStr == "1");
+            else if (key == "enableCustomBundlesPath") g_modConfig.enableCustomBundlesPath = (valueStr == "true" || valueStr == "1");
+            else if (key == "bundlesLoadPath") g_modConfig.bundlesLoadPath = trim(valueStr, " \t\n\r\"");
+            else if (key == "enableDifficultyUIMode") g_modConfig.enableDifficultyUIMode = (valueStr == "true" || valueStr == "1");
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+// 获取当前进程包名（/proc/self/cmdline）
+static std::string GetPackageName() {
+    char buf[256]{0};
+    FILE* f = fopen("/proc/self/cmdline", "r");
+    if (f) {
+        fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+    }
+    return std::string(buf);
+}
+
+// 读取配置文件（如果不存在则创建默认配置）
+static bool loadConfigFromFile() {
+    std::string packageName = GetPackageName();
+    if (packageName.empty()) {
+        LOGW("Failed to get package name, using fallback path");
+    }
+
+    // 构建配置路径：/sdcard/Android/data/<package>/files/ADOFAIMod/ADOFAI-Mod-Info.json
+    std::string configDir = "/sdcard/Android/data/" + packageName + "/files/ADOFAIMod";
+    std::string configPath = configDir + "/ADOFAI-Mod-Info.json";
+
+    // 尝试打开配置文件
+    std::ifstream file(configPath);
+    if (!file.is_open()) {
+        LOGW("Config file not found: %s, creating default config", configPath.c_str());
+
+        // 创建目录（如果不存在）
+        mkdir(configDir.c_str(), 0755);
+
+        // 写入默认配置
+        std::ofstream outFile(configPath);
+        if (outFile.is_open()) {
+            outFile << "{\n";
+            outFile << "  \"enableUnlockAllLevels\": true,\n";
+            outFile << "  \"enableTaroDlcCheck\": true,\n";
+            outFile << "  \"enableLoadLevel\": true,\n";
+            outFile << "  \"enableNoMultipressPenalty\": true,\n";
+            outFile << "  \"enableAutoPlay\": true,\n";
+            outFile << "  \"enableHideCircles\": true,\n";
+            outFile << "  \"enableHidePauseButton\": true,\n";
+            outFile << "  \"enableHidePerfectHitText\": true,\n";
+            outFile << "  \"enableCustomUIHitTest\": true,\n";
+            outFile << "  \"enableCustomBundlesPath\": true,\n";
+            outFile << "  \"bundlesLoadPath\": \"/sdcard/DLC/Bundles\",\n";
+            outFile << "  \"enableDifficultyUIMode\": true,\n";
+            outFile << "}\n";
+            outFile.close();
+            LOGD("Default config created at %s", configPath.c_str());
+        } else {
+            LOGE("Failed to create default config at %s", configPath.c_str());
+        }
+        return false; // 使用内置默认值
+    }
+
+    std::ostringstream oss;
+    oss << file.rdbuf();
+    std::string content = oss.str();
+
+    if (parseConfig(content)) {
+        __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "Mod configuration loaded from %s", configPath.c_str());
+        return true;
+    }
+    return false;
+}
+
+// 辅助：trim 字符串（重载）
+static std::string trim(const std::string& s, const char* whitespace = " \t\n\r") {
+    size_t start = s.find_first_not_of(whitespace);
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(whitespace);
+    return s.substr(start, end - start + 1);
+}
 
 // ============ 缓存反射对象 (全局静态) ============
 
@@ -132,99 +387,6 @@ static std::mutex g_pickerMutex;
 static std::condition_variable g_pickerCV;
 static bool g_pickerResultReady = false;
 static std::string g_pickerSelectedPath;
-
-// 替换原先的 ofstream + mutex
-static std::queue<std::string> g_logQueue;
-static std::mutex g_queueMutex;
-static std::condition_variable g_queueCV;
-static std::atomic<bool> g_logThreadRunning{false};
-static std::thread g_logThread;
-static std::string g_logPath = "/sdcard/adofai_mod.log";
-
-// 后台线程函数
-void LogWriterThread() {
-    std::ofstream logFile(g_logPath, std::ios::trunc); // 每次启动清空
-    if (!logFile.is_open()) return;
-
-    while (g_logThreadRunning.load()) {
-        std::unique_lock<std::mutex> lock(g_queueMutex);
-        g_queueCV.wait(lock, []{ return !g_logQueue.empty() || !g_logThreadRunning; });
-
-        // 取出所有待写消息
-        std::queue<std::string> localQueue;
-        std::swap(localQueue, g_logQueue);
-        lock.unlock();
-
-        // 写入文件
-        while (!localQueue.empty()) {
-            logFile << localQueue.front();
-            localQueue.pop();
-        }
-        logFile.flush(); // 一次 flush 全部
-    }
-
-    // 线程结束前再检查一次队列
-    {
-        std::lock_guard<std::mutex> lock(g_queueMutex);
-        while (!g_logQueue.empty()) {
-            logFile << g_logQueue.front();
-            g_logQueue.pop();
-        }
-    }
-    logFile.flush();
-    logFile.close();
-}
-
-// 启动日志线程
-void StartLogging() {
-    g_logThreadRunning = true;
-    g_logThread = std::thread(LogWriterThread);
-}
-
-// 停止日志线程
-void StopLogging() {
-    g_logThreadRunning = false;
-    g_queueCV.notify_all();
-    if (g_logThread.joinable()) {
-        g_logThread.join();
-    }
-}
-
-// LogToFile 现在只负责格式化并推入队列
-void LogToFile(const char* format, ...) {
-    // 获取时间戳
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  now.time_since_epoch()) % 1000;
-
-    std::ostringstream oss;
-    oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
-    oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
-    oss << " ";
-
-    char buffer[1024];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-
-    oss << buffer << '\n';
-
-    // 入队（锁粒度极小）
-    {
-        std::lock_guard<std::mutex> lock(g_queueMutex);
-        g_logQueue.push(oss.str());
-    }
-    g_queueCV.notify_one();
-}
-
-#undef LOGD
-#undef LOGE
-#undef LOGW
-#define LOGD(...) do { __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__); LogToFile(__VA_ARGS__); } while(0)
-#define LOGE(...) do { __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__); LogToFile(__VA_ARGS__); } while(0)
-#define LOGW(...) do { __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__); LogToFile(__VA_ARGS__); } while(0)
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_mod_filepicker_FilePicker_nativeOnFileSelected(JNIEnv* env, jclass,
@@ -409,7 +571,7 @@ void InitModCache() {
 }
 
 // ============ Hook 函数实现 (全部使用缓存) ============
-// ADOStartup.Startup -> 强制 DLC initialized
+// ADOStartup.Startup -> 强制 DLC 初始化（无开关，始终执行）
 void (*old_ADOStartup_Startup)(UnityEngine::Object *);
 void ADOFAIStart(UnityEngine::Object *instance) {
     old_ADOStartup_Startup(instance);
@@ -450,9 +612,9 @@ void ShowHitTextMet(UnityEngine::Object *instance, HitMargin hitMargin, Vector3 
         old_scrController_ShowHitText(instance, hitMargin, position, angle);
 }
 
-// GCNS.get_BundlesLoadPath -> /sdcard/DLC/Bundles
+// GCNS.get_BundlesLoadPath -> customizable path
 String* dlc() {
-    return CreateMonoString("/sdcard/DLC/Bundles");
+    return CreateMonoString(g_modConfig.bundlesLoadPath.c_str());
 }
 
 DifficultyUIMode DetermineDifficultyUIModeMet() {
@@ -524,7 +686,7 @@ void scrUIController_Update(UnityEngine::Object* instance) {
     SetActive(GetGameObject(pauseBtn), false);
 }
 
-// scrController.IsScreenPointInsideUIElements -> 使用缓存的 EventSystem
+// scrController.IsScreenPointInsideUIElements -> 使用缓存的 EventSystem（完全替换）
 bool IsScreenPointInsideUIElements_Hook(UnityEngine::Object* instance, Vector2 position) {
     auto eventSystem = g_eventSystemCurrentProp.Get();
     if (!eventSystem) return false;
@@ -598,7 +760,7 @@ void BetaBuild(UnityEngine::Object *instance) {
     g_setBuildTextField[instance].Set(true);
 
     if (textComponent) {
-        g_tmpTextProperty[textComponent].Set(CreateMonoString("Mod Version 1.0.2"));
+        g_tmpTextProperty[textComponent].Set(CreateMonoString("Mod Version 1.0.3"));
 /*
         // 使用缓存的 GetComponent<RectTransform>()
         auto rectTransform = g_getRectTransformMethod[textComponent].Call();
@@ -616,46 +778,17 @@ void BetaBuild(UnityEngine::Object *instance) {
 
 // ============ start() 函数 ============
 void start() {
-    /*
-    assembly_csharp = Image("Assembly-CSharp");
-    unityCore = Image("UnityEngine.CoreModule");
-    unityUI = Image("UnityEngine.UI");
-    */
+    // 加载配置文件
+    loadConfigFromFile();
 
     // 初始化所有缓存
     InitModCache();
 
-    // ---- 安装所有 Hook ----
+    // ---- 安装 Hook（根据配置条件安装） ----
+
+    // 始终安装的核心 Hook（基础模组功能必需）
     auto startMethod = Class("","ADOStartup").GetMethod("Startup");
     BasicHook(startMethod, ADOFAIStart, old_ADOStartup_Startup);
-
-    auto OttoUpdate = Class("","OttoButtonController").GetMethod("Update");
-    BasicHook(OttoUpdate, OttoButtonController_Update, old_OttoButtonController_Update);
-
-    auto rdcUnlock = Class("","RDC").GetMethod("get_forceUnlockAllLevels");
-    BasicHook(rdcUnlock, RDC_forceUnlockAllLevelsMet, (void*)nullptr);
-
-    auto multiPenalty = Class("","scrPlanet").GetMethod("GetMultipressPenalty");
-    BasicHook(multiPenalty, scrPlanet_GetMultipressPenaltyMet, (void*)nullptr);
-
-    auto diffMode = Class("","scrMisc").GetMethod("DetermineDifficultyUIMode");
-    BasicHook(diffMode, DetermineDifficultyUIModeMet, (void*)nullptr);
-
-    auto isEditor = Class("","ADOBase").GetMethod("get_isUnityEditor");
-    BasicHook(isEditor, IsUnityEditorMet, (void*)nullptr);
-
-    auto mobile = Class("","ADOBase").GetMethod("get_isMobile");
-    //BasicHook(mobile, IsMobile, old_isMobile);
-    //未知原因hook他就崩游戏，先注释了
-
-    auto ringUpdate = Class("","scrRing").GetMethod("Update");
-    BasicHook(ringUpdate, scrRing_Update, old_scrRing_Update);
-
-    auto showHitText = Class("","scrController").GetMethod("ShowHitText");
-    BasicHook(showHitText, ShowHitTextMet, old_scrController_ShowHitText);
-
-    auto bundlesPath = Class("","GCNS").GetMethod("get_BundlesLoadPath");
-    BasicHook(bundlesPath, dlc, (void*)nullptr);
 
     auto quit = Class("","scrController").GetMethod("QuitToMainMenu");
     BasicHook(quit, QuitToMainMenuMet, old_QuitToMainMenu);
@@ -663,23 +796,84 @@ void start() {
     auto restart = Class("","scrController").GetMethod("RestartProgress");
     BasicHook(restart, RestartMet, old_scrController_Restart);
 
-    auto taroCheck = Class("ADOFAI","LevelEventInfo").GetMethod("get_taroDLCCheck");
-    BasicHook(taroCheck, TaroDLCCheckMet, (void*)nullptr);
-
     auto activeCheck = Class("ADOFAI", "LevelEventInfo").GetMethod("get_isActive");
     BasicHook(activeCheck, IsEditorMet, (void*)nullptr);
 
-    auto isInsideUI = Class("", "scrController").GetMethod("IsScreenPointInsideUIElements");
-    BasicHook(isInsideUI, IsScreenPointInsideUIElements_Hook, (void*)nullptr);
-
-    auto uiUpdate = Class("","scrUIController").GetMethod("Update");
-    BasicHook(uiUpdate, scrUIController_Update, old_scrUIController_Update);
+    auto playMethod = Class("","scnGame").GetMethod("Play");
+    BasicHook(playMethod, PlayMet, old_scnGame_Play);
 
     auto pauselevelEditor = Class("","PauseMenu").GetMethod("RefreshLayout");
     BasicHook(pauselevelEditor, RefreshLayout_Hook, old_RefreshLayout);
 
     auto betaBuild_Hook = Class("", "scrEnableIfBeta").GetMethod("Awake");
     BasicHook(betaBuild_Hook, BetaBuild, (void*)nullptr);
+
+    // 可配置 Hook（根据开关决定是否安装）
+    if (g_modConfig.enableUnlockAllLevels) {
+        auto rdcUnlock = Class("","RDC").GetMethod("get_forceUnlockAllLevels");
+        BasicHook(rdcUnlock, RDC_forceUnlockAllLevelsMet, (void*)nullptr);
+        LOGD("Hook: enableUnlockAllLevels enabled");
+    }
+
+    if (g_modConfig.enableNoMultipressPenalty) {
+        auto multiPenalty = Class("","scrPlanet").GetMethod("GetMultipressPenalty");
+        BasicHook(multiPenalty, scrPlanet_GetMultipressPenaltyMet, (void*)nullptr);
+        LOGD("Hook: enableNoMultipressPenalty enabled");
+    }
+
+    if (g_modConfig.enableDifficultyUIMode) {
+        auto diffMode = Class("","scrMisc").GetMethod("DetermineDifficultyUIMode");
+        BasicHook(diffMode, DetermineDifficultyUIModeMet, (void*)nullptr);
+        LOGD("Hook: enableDifficultyUIMode enabled");
+    }
+
+    if (g_modConfig.enableLoadLevel) {
+        auto isEditor = Class("","ADOBase").GetMethod("get_isUnityEditor");
+        BasicHook(isEditor, IsUnityEditorMet, (void*)nullptr);
+        LOGD("Hook: enableLoadLevel enabled");
+    }
+
+    if (g_modConfig.enableTaroDlcCheck) {
+        auto taroCheck = Class("ADOFAI","LevelEventInfo").GetMethod("get_taroDLCCheck");
+        BasicHook(taroCheck, TaroDLCCheckMet, (void*)nullptr);
+        LOGD("Hook: enableTaroDlcCheck enabled");
+    }
+
+    if (g_modConfig.enableAutoPlay) {
+        auto OttoUpdate = Class("","OttoButtonController").GetMethod("Update");
+        BasicHook(OttoUpdate, OttoButtonController_Update, old_OttoButtonController_Update);
+        LOGD("Hook: enableAutoPlay enabled");
+    }
+
+    if (g_modConfig.enableHidePauseButton) {
+        auto uiUpdate = Class("","scrUIController").GetMethod("Update");
+        BasicHook(uiUpdate, scrUIController_Update, old_scrUIController_Update);
+        LOGD("Hook: enableHidePauseButton enabled");
+    }
+
+    if (g_modConfig.enableHideCircles) {
+        auto ringUpdate = Class("","scrRing").GetMethod("Update");
+        BasicHook(ringUpdate, scrRing_Update, old_scrRing_Update);
+        LOGD("Hook: enableHideCircles enabled");
+    }
+
+    if (g_modConfig.enableHidePerfectHitText) {
+        auto showHitText = Class("","scrController").GetMethod("ShowHitText");
+        BasicHook(showHitText, ShowHitTextMet, old_scrController_ShowHitText);
+        LOGD("Hook: enableHidePerfectHitText enabled");
+    }
+
+    if (g_modConfig.enableCustomBundlesPath) {
+        auto bundlesPath = Class("","GCNS").GetMethod("get_BundlesLoadPath");
+        BasicHook(bundlesPath, dlc, (void*)nullptr);
+        LOGD("Hook: enableCustomBundlesPath enabled");
+    }
+
+    if (g_modConfig.enableCustomUIHitTest) {
+        auto isInsideUI = Class("", "scrController").GetMethod("IsScreenPointInsideUIElements");
+        BasicHook(isInsideUI, IsScreenPointInsideUIElements_Hook, (void*)nullptr);
+        LOGD("Hook: enableCustomUIHitTest enabled");
+    }
 
     // Install file picker hook (delayed via BNM loaded event)
     JNIEnv* env = nullptr;
@@ -694,7 +888,7 @@ void start() {
     }
     if (attached) g_vm->DetachCurrentThread();
 
-    LOGD("All hooks installed and caches initialized.");
+    LOGD("All hooks installed.");
 }
 
 // ============ JNI_OnLoad ============
