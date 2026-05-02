@@ -9,25 +9,15 @@ using namespace BNM;
 using namespace BNM::Structures::Mono;
 using namespace BNM::Structures::Unity;
 
-// 原始函數指針定義（初始化為nullptr）
-void (*old_ADOStartup_Startup)(UnityEngine::Object*) = nullptr;
-void (*old_OttoButtonController_Update)(UnityEngine::Object*) = nullptr;
-void (*old_scrController_ShowHitText)(UnityEngine::Object*, HitMargin, Vector3, float) = nullptr;
-bool (*old_isMobile)() = nullptr;
-void (*old_QuitToMainMenu)(UnityEngine::Object*) = nullptr;
-void (*old_scrController_Restart)(UnityEngine::Object*) = nullptr;
-void (*old_scnGame_Play)(UnityEngine::Object*) = nullptr;
-void (*old_scrRing_Update)(UnityEngine::Object*) = nullptr;
-void (*old_scrUIController_Update)(UnityEngine::Object*) = nullptr;
-void (*old_RefreshLayout)(UnityEngine::Object*) = nullptr;
-
 // ============ Hook 函數實現 ============
 
+void (*old_ADOStartup_Startup)(UnityEngine::Object*) = nullptr;
 void ADOFAIStart(UnityEngine::Object* instance) {
     old_ADOStartup_Startup(instance);
     g_dlcInitializedField.Set(true);
 }
 
+void (*old_OttoButtonController_Update)(UnityEngine::Object*) = nullptr;
 void OttoButtonController_Update(UnityEngine::Object* instance) {
     old_OttoButtonController_Update(instance);
     auto controller = g_get_controller.Call();
@@ -54,6 +44,7 @@ void OttoButtonController_Update(UnityEngine::Object* instance) {
     }
 }
 
+void (*old_scrController_ShowHitText)(UnityEngine::Object*, HitMargin, Vector3, float) = nullptr;
 void ShowHitTextMet(UnityEngine::Object* instance, HitMargin hitMargin, Vector3 position, float angle) {
     if (hitMargin != HitMargin::Perfect)
         old_scrController_ShowHitText(instance, hitMargin, position, angle);
@@ -67,6 +58,7 @@ DifficultyUIMode DetermineDifficultyUIModeMet() {
     return DifficultyUIMode::ShowAll;
 }
 
+bool (*old_isMobile)() = nullptr;
 bool IsMobile() {
     auto scene = g_get_sceneName.Call();
     if (scene && (scene->str() == "scnTaroMenu0" || scene->str() == "scnTaroMenu1" ||
@@ -76,6 +68,7 @@ bool IsMobile() {
     return old_isMobile();
 }
 
+void (*old_QuitToMainMenu)(UnityEngine::Object*) = nullptr;
 void QuitToMainMenuMet(UnityEngine::Object* instance) {
     old_QuitToMainMenu(instance);
     if (g_get_isScnGame.Call()) {
@@ -86,6 +79,7 @@ void QuitToMainMenuMet(UnityEngine::Object* instance) {
     g_useNoFailField.Set(false);
 }
 
+void (*old_scrController_Restart)(UnityEngine::Object*) = nullptr;
 void RestartMet(UnityEngine::Object* instance) {
     old_scrController_Restart(instance);
     if (g_get_isScnGame.Call() && !g_get_isOfficialLevel.Call()) {
@@ -95,6 +89,7 @@ void RestartMet(UnityEngine::Object* instance) {
     }
 }
 
+void (*old_scnGame_Play)(UnityEngine::Object*) = nullptr;
 void PlayMet(UnityEngine::Object* instance) {
     old_scnGame_Play(instance);
     if (g_get_isOfficialLevel.Call())
@@ -107,12 +102,14 @@ bool IsUnityEditorMet()                  { return true; }
 bool IsEditorMet()                       { return true; }
 bool scrPlanet_GetMultipressPenaltyMet() { return false; }
 
+void (*old_scrRing_Update)(UnityEngine::Object*) = nullptr;
 void scrRing_Update(UnityEngine::Object* instance) {
     old_scrRing_Update(instance);
     auto transform = g_getTransformMethod[instance].Call();
     g_localScaleProperty[transform].Set(Vector3::zero);
 }
 
+void (*old_scrUIController_Update)(UnityEngine::Object*) = nullptr;
 void scrUIController_Update(UnityEngine::Object* instance) {
     old_scrUIController_Update(instance);
     auto pauseBtn = g_pauseButtonField[instance].Get();
@@ -134,6 +131,7 @@ bool IsScreenPointInsideUIElements_Hook(UnityEngine::Object* instance, Vector2 p
     return g_listCountProp[results].Get() > 0;
 }
 
+void (*old_RefreshLayout)(UnityEngine::Object*) = nullptr;
 void RefreshLayout_Hook(UnityEngine::Object* instance) {
     old_RefreshLayout(instance);
 
