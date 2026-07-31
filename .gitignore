@@ -1,0 +1,12 @@
+/build
+.claude
+/out
+
+# 编译产物
+*.so
+app/src/main/obj/
+app/src/main/libs/
+app/src/main/jniLibs/
+app/build/
+*.iml
+.gradle/

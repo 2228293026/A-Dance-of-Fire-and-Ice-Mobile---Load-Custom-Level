@@ -1,0 +1,19 @@
+{
+  // 全局功能开关（全部默认开启，设为 false 可禁用对应功能）
+  "enableUnlockAllLevels": true,           // 解锁所有关卡（RDC.forceUnlockAllLevels 返回 true）
+  "enableTaroDlcCheck": true,              // 绕过 Taro DLC 检查（LevelEventInfo.taroDLCCheck 返回 true）
+  "enableLoadLevel": true,                 // 在设置菜单显示"载入关卡"按钮（ADOBase.isUnityEditor 返回 true）
+  "enableNoMultipressPenalty": true,       // 禁用多点触控惩罚（scrPlanet.GetMultipressPenalty 返回 false）
+  "enableAutoPlay": true,                  // 启用 Otto 自动播放按钮显示和颜色逻辑
+
+  // UI 修改
+  "enableHideCircles": true,               // 隐藏所有音符圆圈（scrRing.Update 设置缩放为 0）
+  "enableHidePauseButton": true,           // 隐藏暂停按钮（scrUIController.Update）
+  "enableHidePerfectHitText": true,        // 隐藏 Perfect 判定文字（ShowHitText 跳过 Perfect 显示）
+  "enableCustomUIHitTest": true,           // 使用自定义 UI 点击检测逻辑（IsScreenPointInsideUIElements 使用 EventSystem Raycast）
+
+  // 路径与难度配置
+  "enableCustomBundlesPath": true,         // 启用自定义 DLC 包路径
+  "bundlesLoadPath": "/sdcard/DLC/Bundles", // DLC 包搜索目录
+  "enableDifficultyUIMode": true          // 启用难度显示模式覆盖
+}
